@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemStatus {
+  TRACKING
+  TARGET_HIT
+  PAUSED
+  ERROR
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  deviceToken    String?  @map("device_token")
+  // false = mặc định chỉ được 1 slot theo dõi; true = đã unlock slot thứ 2 (tối đa 2)
+  unlockedSlot2  Boolean  @default(false) @map("unlocked_slot_2")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Dự phòng cho tính năng giới thiệu (Referral)
+  referralCode   String?  @unique @map("referral_code")
+  referredBy     String?  @map("referred_by")
+
+  trackingItems TrackingItem[]
+
+  @@map("users")
+}
+
+model TrackingItem {
+  id            String     @id @default(uuid())
+  userId        String     @map("user_id")
+  productName   String?    @map("product_name")
+
+  // Trích xuất từ shopeeUrl bởi module parser - cần để gọi API lấy giá định kỳ
+  itemId        BigInt?    @map("item_id")
+  shopId        BigInt?    @map("shop_id")
+
+  originalPrice Decimal?   @map("original_price") @db.Decimal(12, 2)
+  targetPrice   Decimal    @map("target_price") @db.Decimal(12, 2)
+  shopeeUrl     String     @map("shopee_url")
+  status        ItemStatus @default(TRACKING)
+  
+  // Lưu phân loại hàng (Color/Size/SKU)
+  selectedModelId BigInt?  @map("selected_model_id")
+  variantName     String?  @map("variant_name")
+
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priceHistories PriceHistory[]
+
+  @@unique([userId, itemId], name: "uniq_user_item")
+  @@map("tracking_items")
+}
+
+model PriceHistory {
+  id             String       @id @default(uuid())
+  trackingItemId String       @map("tracking_item_id")
+  price          Decimal      @db.Decimal(12, 2)
+  timestamp      DateTime     @default(now())
+
+  trackingItem   TrackingItem @relation(fields: [trackingItemId], references: [id], onDelete: Cascade)
+
+  @@index([trackingItemId, timestamp])
+  @@map("price_history")
+}
