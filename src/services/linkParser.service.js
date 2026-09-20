@@ -94,8 +94,8 @@ async function parseShopeeLink(rawUrl) {
   }
 
   return {
-    itemId: ids ? ids.itemId : "pending_regex",
-    shopId: ids ? ids.shopId : "pending_regex",
+    itemId: ids ? ids.itemId : null,
+    shopId: ids ? ids.shopId : null,
     resolvedUrl: longUrl,
   };
 }

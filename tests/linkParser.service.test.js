@@ -3,7 +3,7 @@ const assert = require("node:assert");
 const {
   isShortLink,
   extractIdsFromLongUrl,
-} = require("../src/services/shopeeLinkParser");
+} = require("../src/services/linkParser.service");
 
 test("isShortLink nhận diện đúng link rút gọn vn.shp.ee, tiktok và lazada", () => {
   assert.strictEqual(isShortLink("https://vn.shp.ee/abc123"), true);

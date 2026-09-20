@@ -1,6 +1,6 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
-const { parseShopeeLink } = require("./shopeeLinkParser");
+const { parseShopeeLink } = require("./linkParser.service");
 const { fetchCurrentPrice } = require("./shopeePriceService");
 
 /**
@@ -11,7 +11,7 @@ function getMaxSlots(user) {
   return user.unlockedSlot2 ? 2 : 1;
 }
 
-async function createTrackingItem({ userId, shopeeUrl, targetPrice }) {
+async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName, selectedModelId }) {
   if (!userId || !shopeeUrl || targetPrice === undefined) {
     throw new ApiError(400, "Thiếu userId, shopeeUrl hoặc targetPrice");
   }
@@ -36,8 +36,12 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice }) {
   const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
 
   // Kiểm tra user đã theo dõi item này chưa (tránh trùng lặp trong 2 slot)
+  const existingWhere = itemId
+    ? { userId, itemId: BigInt(itemId) }
+    : { userId, shopeeUrl: resolvedUrl };
+
   const existing = await prisma.trackingItem.findFirst({
-    where: { userId, itemId: BigInt(itemId) },
+    where: existingWhere,
   });
   if (existing) {
     throw new ApiError(400, "Bạn đã theo dõi sản phẩm này rồi");
@@ -58,12 +62,14 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice }) {
     data: {
       userId,
       productName,
-      itemId: BigInt(itemId),
-      shopId: BigInt(shopId),
+      itemId: itemId ? BigInt(itemId) : null,
+      shopId: shopId ? BigInt(shopId) : null,
       originalPrice: currentPrice,
       targetPrice,
       shopeeUrl: resolvedUrl,
       status: "TRACKING",
+      variantName,
+      selectedModelId: selectedModelId ? BigInt(selectedModelId) : null,
     },
   });
 
@@ -93,6 +99,7 @@ function serializeItem(item) {
     ...item,
     itemId: item.itemId?.toString() ?? null,
     shopId: item.shopId?.toString() ?? null,
+    selectedModelId: item.selectedModelId?.toString() ?? null,
   };
 }
 

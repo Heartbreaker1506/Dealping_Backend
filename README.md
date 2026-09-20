@@ -15,13 +15,13 @@ dealping-backend/
 │   ├── routes/                # Định nghĩa route
 │   ├── controllers/           # Xử lý request/response
 │   ├── services/
-│   │   ├── shopeeLinkParser.js    # Module bóc tách link Shopee (dài + rút gọn)
+│   │   ├── linkParser.service.js    # Module bóc tách link Shopee (dài + rút gọn)
 │   │   ├── shopeePriceService.js  # Gọi API lấy giá hiện tại
 │   │   └── trackingItems.service.js  # Nghiệp vụ + validation giới hạn slot
 │   ├── middlewares/errorHandler.js
 │   └── utils/
 └── tests/
-    └── shopeeLinkParser.test.js   # Test thuần logic, không cần network/DB
+    └── linkParser.service.test.js   # Test thuần logic, không cần network/DB
 ```
 
 ## Cài đặt
@@ -42,7 +42,7 @@ npm run dev                          # chạy tại http://localhost:3000
 npm test
 ```
 
-Test hiện tại kiểm tra `shopeeLinkParser` — bóc tách `itemId`/`shopId` từ cả link dài
+Test hiện tại kiểm tra `linkParser.service` — bóc tách `itemId`/`shopId` từ cả link dài
 (`shopee.vn/...-i.{shopId}.{itemId}`) lẫn nhận diện đúng link rút gọn (`vn.shp.ee/...`).
 
 ## API
