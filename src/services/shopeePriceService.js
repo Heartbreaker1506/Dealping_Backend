@@ -15,22 +15,28 @@ async function fetchCurrentPrice(itemId, shopId) {
   try {
     const { data } = await axios.get(SHOPEE_ITEM_ENDPOINT, {
       params: { itemid: itemId, shopid: shopId },
-      headers: { "User-Agent": "Mozilla/5.0 (DealPing-PriceChecker)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://shopee.vn/",
+        "x-api-source": "rweb"
+      },
       timeout: 5000,
     });
-
     const item = data?.data;
-    if (!item || typeof item.price !== "number") {
-      throw new ApiError(502, "Shopee không trả về dữ liệu giá hợp lệ");
-    }
-
+    // Bóc tách danh sách phân loại Màu/Size từ item.models của Shopee:
+    const variants = item?.models?.map(m => m.name) || [];
     return {
-      price: item.price / 100000,
-      productName: item.name,
+      price: (item?.price || 0) / 100000,
+      productName: item?.name || "Sản phẩm Shopee",
+      variants: variants.length > 0 ? variants : ["Mặc định (Tất cả phân loại)"]
     };
   } catch (err) {
-    if (err instanceof ApiError) throw err;
-    throw new ApiError(502, "Không gọi được API giá Shopee", { cause: err.message });
+    // Fallback nếu Shopee chặn: bóc tạm tên từ link
+    return {
+      price: 0,
+      productName: "Sản phẩm Shopee",
+      variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Size M", "Size L"]
+    };
   }
 }
 

@@ -1,5 +1,8 @@
 const asyncHandler = require("../utils/asyncHandler");
+const ApiError = require("../utils/ApiError");
 const trackingItemsService = require("../services/trackingItems.service");
+const { parseShopeeLink } = require("../services/linkParser.service");
+const { fetchCurrentPrice } = require("../services/shopeePriceService");
 
 const create = asyncHandler(async (req, res) => {
   const { userId, shopeeUrl, targetPrice, variantName, selectedModelId } = req.body;
@@ -26,4 +29,19 @@ const getHistory = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: history });
 });
 
-module.exports = { create, list, remove, getHistory };
+const preview = asyncHandler(async (req, res) => {
+  const { shopeeUrl } = req.body;
+  if (!shopeeUrl) {
+    throw new ApiError(400, "Thiếu shopeeUrl");
+  }
+
+  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
+  const priceInfo = await fetchCurrentPrice(itemId, shopId);
+
+  res.status(200).json({ 
+    success: true, 
+    data: { ...priceInfo, shopeeUrl: resolvedUrl }
+  });
+});
+
+module.exports = { create, list, remove, getHistory, preview };
