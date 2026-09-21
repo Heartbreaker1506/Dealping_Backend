@@ -20,4 +20,10 @@ const remove = asyncHandler(async (req, res) => {
   res.status(204).send();
 });
 
-module.exports = { create, list, remove };
+const getHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const history = await trackingItemsService.getTrackingItemHistory(id);
+  res.status(200).json({ success: true, data: history });
+});
+
+module.exports = { create, list, remove, getHistory };

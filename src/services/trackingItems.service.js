@@ -103,9 +103,24 @@ function serializeItem(item) {
   };
 }
 
+async function getTrackingItemHistory(id) {
+  const item = await prisma.trackingItem.findUnique({ where: { id } });
+  if (!item) {
+    throw new ApiError(404, "Không tìm thấy item");
+  }
+
+  const history = await prisma.priceHistory.findMany({
+    where: { trackingItemId: id },
+    orderBy: { timestamp: "desc" },
+  });
+
+  return history;
+}
+
 module.exports = {
   getMaxSlots,
   createTrackingItem,
   listTrackingItems,
   deleteTrackingItem,
+  getTrackingItemHistory,
 };
