@@ -28,14 +28,22 @@ async function fetchCurrentPrice(itemId, shopId) {
     return {
       price: (item?.price || 0) / 100000,
       productName: item?.name || "Sản phẩm Shopee",
-      variants: variants.length > 0 ? variants : ["Mặc định (Tất cả phân loại)"]
+      variants: variants.length > 0 ? variants : ["Mặc định (Tất cả phân loại)"],
+      // Chuẩn bị sẵn cấu trúc dữ liệu để khi Phúc có API Shopee Affiliate là bóc được:
+      flashSalePrice: null, // Giá sập
+      cashbackCommission: null, // Hoa hồng hoàn tiền
+      discountCodes: [] // Mã giảm giá
     };
   } catch (err) {
     // Fallback nếu Shopee chặn: bóc tạm tên từ link
     return {
       price: 0,
       productName: "Sản phẩm Shopee",
-      variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Size M", "Size L"]
+      variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Size M", "Size L"],
+      // Dự phòng cấu trúc
+      flashSalePrice: null,
+      cashbackCommission: null,
+      discountCodes: []
     };
   }
 }
