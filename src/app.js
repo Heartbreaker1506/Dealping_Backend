@@ -11,20 +11,13 @@ const app = express();
 // Khóa CORS server Render, chỉ cho phép web Netlify của Kiệt và localhost gọi vào
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL, // Cấu hình link Netlify (VD: https://kiet-web.netlify.app) vào biến môi trường FRONTEND_URL trên Render
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:8443"
-    ];
-    // Cho phép gọi không có origin (ví dụ: Postman) hoặc origin nằm trong danh sách
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || origin.endsWith('.netlify.app') || origin.includes('localhost')) {
       callback(null, true);
     } else {
-      callback(new Error("CORS policy: Access denied"));
+      callback(null, true); // Tạm mở thoáng cho anh em với thầy cô test demo MVP 
     }
   },
-  credentials: true,
+  credentials: true
 };
 
 app.use(cors(corsOptions));

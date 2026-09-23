@@ -73,3 +73,26 @@ exports.verifyToken = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * API Xử lý Callback từ Lazada
+ * GET /api/auth/callback
+ */
+exports.lazadaCallback = async (req, res, next) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      throw new ApiError(400, "Không tìm thấy authorization code từ Lazada");
+    }
+
+    // TODO: Xử lý logic gọi API Lazada để đổi code lấy access token ở đây
+    
+    res.status(200).json({
+      success: true,
+      message: "Đã nhận được callback từ Lazada",
+      code,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
