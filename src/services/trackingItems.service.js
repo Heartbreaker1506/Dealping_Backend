@@ -2,6 +2,8 @@ const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
 const { parseShopeeLink } = require("./linkParser.service");
 const { fetchCurrentPrice } = require("./shopeePriceService");
+const { fetchLazadaInfo } = require("./lazadaPriceService");
+const { fetchTiktokInfo } = require("./tiktokPriceService");
 
 /**
  * unlockedSlot2 = false -> tối đa 1 item
@@ -33,7 +35,7 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName,
   }
   // ---------------------------------------------------------------------
 
-  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
+  const { itemId, shopId, resolvedUrl, platform } = await parseShopeeLink(shopeeUrl);
 
   // Kiểm tra user đã theo dõi item này chưa (tránh trùng lặp trong 2 slot)
   const existingWhere = itemId
@@ -50,11 +52,21 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName,
   let currentPrice = null;
   let productName = null;
   try {
-    const priceInfo = await fetchCurrentPrice(itemId, shopId);
-    currentPrice = priceInfo.price;
-    productName = priceInfo.productName;
+    let priceInfo;
+    if (platform === 'lazada') {
+      priceInfo = await fetchLazadaInfo(resolvedUrl);
+    } else if (platform === 'tiktok') {
+      priceInfo = fetchTiktokInfo(resolvedUrl);
+    } else {
+      priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
+    }
+    
+    if (priceInfo) {
+      currentPrice = priceInfo.price;
+      productName = priceInfo.productName;
+    }
   } catch {
-    // Không chặn việc tạo item nếu Shopee tạm thời không phản hồi -
+    // Không chặn việc tạo item nếu API tạm thời không phản hồi -
     // job check giá định kỳ sẽ tự cập nhật lại sau.
   }
 

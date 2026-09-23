@@ -3,6 +3,8 @@ const ApiError = require("../utils/ApiError");
 const trackingItemsService = require("../services/trackingItems.service");
 const { parseShopeeLink } = require("../services/linkParser.service");
 const { fetchCurrentPrice } = require("../services/shopeePriceService");
+const { fetchLazadaInfo } = require("../services/lazadaPriceService");
+const { fetchTiktokInfo } = require("../services/tiktokPriceService");
 
 const create = asyncHandler(async (req, res) => {
   const { userId, shopeeUrl, targetPrice, variantName, selectedModelId } = req.body;
@@ -35,12 +37,20 @@ const preview = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Thiếu shopeeUrl");
   }
 
-  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
-  const priceInfo = await fetchCurrentPrice(itemId, shopId);
+  const { itemId, shopId, resolvedUrl, platform } = await parseShopeeLink(shopeeUrl);
+  
+  let priceInfo;
+  if (platform === 'lazada') {
+    priceInfo = await fetchLazadaInfo(resolvedUrl);
+  } else if (platform === 'tiktok') {
+    priceInfo = fetchTiktokInfo(resolvedUrl);
+  } else {
+    priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
+  }
 
   res.status(200).json({ 
     success: true, 
-    data: { ...priceInfo, shopeeUrl: resolvedUrl }
+    data: { ...priceInfo, shopeeUrl: resolvedUrl, platform }
   });
 });
 

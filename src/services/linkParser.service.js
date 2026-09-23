@@ -89,7 +89,11 @@ async function parseShopeeLink(rawUrl) {
   const longUrl = isShortLink(rawUrl) ? await resolveShortLink(rawUrl) : rawUrl;
   const ids = extractIdsFromLongUrl(longUrl);
 
-  if (!ids && !/tiktok|lazada/.test(longUrl)) {
+  let platform = "shopee";
+  if (/tiktok/.test(longUrl)) platform = "tiktok";
+  if (/lazada/.test(longUrl)) platform = "lazada";
+
+  if (!ids && platform === "shopee") {
     throw new ApiError(400, "Không trích xuất được itemId/shopId từ link này");
   }
 
@@ -97,6 +101,7 @@ async function parseShopeeLink(rawUrl) {
     itemId: ids ? ids.itemId : null,
     shopId: ids ? ids.shopId : null,
     resolvedUrl: longUrl,
+    platform
   };
 }
 

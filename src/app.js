@@ -14,7 +14,8 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL, // Cấu hình link Netlify (VD: https://kiet-web.netlify.app) vào biến môi trường FRONTEND_URL trên Render
       "http://localhost:3000",
-      "http://localhost:5173"
+      "http://localhost:5173",
+      "http://localhost:8443"
     ];
     // Cho phép gọi không có origin (ví dụ: Postman) hoặc origin nằm trong danh sách
     if (!origin || allowedOrigins.includes(origin)) {

@@ -11,7 +11,7 @@ const SHOPEE_ITEM_ENDPOINT = "https://shopee.vn/api/v4/item/get";
  * Gọi API lấy thông tin giá hiện tại của sản phẩm theo itemId + shopId.
  * Giá trả về từ Shopee là số nguyên đã nhân 100000 (đơn vị nhỏ nhất) -> cần chia lại.
  */
-async function fetchCurrentPrice(itemId, shopId) {
+async function fetchCurrentPrice(itemId, shopId, url = "") {
   try {
     const { data } = await axios.get(SHOPEE_ITEM_ENDPOINT, {
       params: { itemid: itemId, shopid: shopId },
@@ -36,9 +36,17 @@ async function fetchCurrentPrice(itemId, shopId) {
     };
   } catch (err) {
     // Fallback nếu Shopee chặn: bóc tạm tên từ link
+    let fallbackName = "Sản phẩm Shopee";
+    try {
+      const match = url.match(/shopee\.vn\/([^?]+?)-i\.\d+\.\d+/);
+      if (match) {
+        fallbackName = decodeURIComponent(match[1]).split('-').join(' ');
+      }
+    } catch(e) {}
+
     return {
       price: 0,
-      productName: "Sản phẩm Shopee",
+      productName: fallbackName,
       variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Size M", "Size L"],
       // Dự phòng cấu trúc
       flashSalePrice: null,
