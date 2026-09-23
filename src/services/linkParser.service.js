@@ -1,7 +1,7 @@
 const axios = require("axios");
 const ApiError = require("../utils/ApiError");
 
-const SHORT_LINK_HOSTS = ["shp.ee", "vn.shp.ee", "s.shopee.vn", "vt.tiktok.com", "lazada.vn", "s.lazada.vn"];
+const SHORT_LINK_HOSTS = ["shp.ee", "vn.shp.ee", "s.shopee.vn", "vt.tiktok.com", "s.lazada.vn", "shorten.asia"];
 
 /**
  * Kiểm tra url có phải dạng rút gọn (vn.shp.ee/...) hay không.
