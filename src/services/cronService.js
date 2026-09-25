@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const prisma = require("../config/prisma");
 const { fetchCurrentPrice } = require("./shopeePriceService");
+const { sendPushNotification } = require("./notificationService");
 
 /**
  * Bắt đầu các cron jobs để lấy giá tự động.
@@ -13,6 +14,7 @@ function startCronJobs() {
     try {
       const trackingItems = await prisma.trackingItem.findMany({
         where: { status: "TRACKING" },
+        include: { user: true },
       });
 
       for (const item of trackingItems) {
@@ -46,6 +48,18 @@ function startCronJobs() {
                 item.productName || item.id
               } đã đạt giá mục tiêu (${price} <= ${item.targetPrice.toNumber()})!`
             );
+
+            // Gửi Push Notification cho người dùng
+            if (item.user && item.user.deviceToken) {
+              const title = `🔥 SẬP GIÁ: ${item.productName || 'Sản phẩm bạn theo dõi'}`;
+              const body = `Giá đã giảm chạm đáy mục tiêu (${price}đ). Bấm vào mua ngay kẻo lỡ!`;
+              const data = { 
+                shopeeUrl: item.shopeeUrl || "",
+                itemId: item.itemId ? item.itemId.toString() : "",
+              };
+              
+              await sendPushNotification(item.user.deviceToken, title, body, data);
+            }
           } else {
              console.log(`[CRON] Sản phẩm ${item.productName || item.id} giá hiện tại: ${price}, chưa đạt mục tiêu (${item.targetPrice.toNumber()}).`);
           }
