@@ -1,14 +1,17 @@
 const asyncHandler = require("../utils/asyncHandler");
-const ApiError = require("../utils/ApiError");
 const trackingItemsService = require("../services/trackingItems.service");
-const { parseShopeeLink } = require("../services/linkParser.service");
-const { fetchCurrentPrice } = require("../services/shopeePriceService");
-const { fetchLazadaInfo } = require("../services/lazadaPriceService");
-const { fetchTiktokInfo } = require("../services/tiktokPriceService");
 
 const create = asyncHandler(async (req, res) => {
-  const { userId, shopeeUrl, targetPrice, variantName, selectedModelId } = req.body;
-  const item = await trackingItemsService.createTrackingItem({ userId, shopeeUrl, targetPrice, variantName, selectedModelId });
+  const { userId, shopeeUrl, targetPrice, variantName, selectedModelId, productName, originalPrice } = req.body;
+  const item = await trackingItemsService.createTrackingItem({
+    userId,
+    shopeeUrl,
+    targetPrice,
+    variantName,
+    selectedModelId,
+    productName,
+    originalPrice,
+  });
   res.status(201).json({ success: true, data: item });
 });
 
@@ -32,26 +35,10 @@ const getHistory = asyncHandler(async (req, res) => {
 });
 
 const preview = asyncHandler(async (req, res) => {
-  const { shopeeUrl } = req.body;
-  if (!shopeeUrl) {
-    throw new ApiError(400, "Thiếu shopeeUrl");
-  }
-
-  const { itemId, shopId, resolvedUrl, platform } = await parseShopeeLink(shopeeUrl);
-  
-  let priceInfo;
-  if (platform === 'lazada') {
-    priceInfo = await fetchLazadaInfo(resolvedUrl);
-  } else if (platform === 'tiktok') {
-    priceInfo = fetchTiktokInfo(resolvedUrl);
-  } else {
-    priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
-  }
-
-  res.status(200).json({ 
-    success: true, 
-    data: { ...priceInfo, shopeeUrl: resolvedUrl, platform }
-  });
+  const { url, shopeeUrl } = req.body;
+  const targetUrl = url || shopeeUrl;
+  const data = await trackingItemsService.previewTrackingItem(targetUrl);
+  res.status(200).json({ success: true, data });
 });
 
 module.exports = { create, list, remove, getHistory, preview };

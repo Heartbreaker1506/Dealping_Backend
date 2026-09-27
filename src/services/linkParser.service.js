@@ -26,6 +26,7 @@ async function resolveShortLink(shortUrl, maxHops = 5) {
   for (let hop = 0; hop < maxHops; hop++) {
     const response = await axios.get(currentUrl, {
       maxRedirects: 0,
+      timeout: 8000,
       validateStatus: (status) => (status >= 200 && status < 300) || (status >= 300 && status < 400),
       headers: { "User-Agent": "Mozilla/5.0 (DealPing-LinkResolver)" },
     });
@@ -67,6 +68,76 @@ function extractIdsFromLongUrl(longUrl) {
 }
 
 /**
+ * Trích xuất tên sản phẩm từ URL đã phân giải (Shopee, Lazada, TikTok)
+ */
+function extractProductNameFromUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname;
+    const hostname = parsed.hostname;
+
+    // 1. Shopee: Pattern /Ten-san-pham-i.shopId.itemId
+    const shopeeMatch = pathname.match(/^\/(.+)-i\.\d+\.\d+/);
+    if (shopeeMatch) {
+      return decodeURIComponent(shopeeMatch[1])
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase())
+        .trim();
+    }
+
+    // 2. Lazada
+    if (hostname.includes("lazada")) {
+      const matchSlug =
+        url.match(/\/products\/([^/?#]+?)-i\d+/) ||
+        url.match(/\/products\/([^/?#]+?)(?:-s\d+)?(?:\.html|\?|$|#)/) ||
+        url.match(/\/products\/([^/?#]+)/);
+      if (matchSlug) {
+        return decodeURIComponent(matchSlug[1])
+          .replace(/-/g, " ")
+          .trim()
+          .replace(/\b([a-zA-Z])/g, (l) => l.toUpperCase());
+      }
+      return "Sản phẩm Lazada";
+    }
+
+    // 3. TikTok
+    if (hostname.includes("tiktok")) {
+      const match = pathname.match(/\/view\/item\/(\d+)/) || pathname.match(/\/product\/([^/?#]+)/);
+      return match ? "Sản phẩm TikTok Shop" : "Sản phẩm TikTok Shop";
+    }
+
+    if (hostname.includes("shopee") || /shp\.ee/.test(hostname)) {
+      return "Sản phẩm Shopee";
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Trích xuất giá từ tham số URL nếu có (ví dụ Lazada displayPrice)
+ */
+function extractPriceFromUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  try {
+    const match =
+      url.match(/displayPrice%3A(\d+)/i) ||
+      url.match(/displayPrice:(\d+)/i) ||
+      url.match(/[?&]price=(\d+)/i);
+    if (match) {
+      const price = parseInt(match[1], 10);
+      if (!isNaN(price) && price > 0) return price;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Entry point chính: nhận vào bất kỳ link Shopee nào (dài hoặc rút gọn),
  * trả về { itemId, shopId, resolvedUrl }.
  */
@@ -89,11 +160,7 @@ async function parseShopeeLink(rawUrl) {
   const longUrl = isShortLink(rawUrl) ? await resolveShortLink(rawUrl) : rawUrl;
   const ids = extractIdsFromLongUrl(longUrl);
 
-  let platform = "shopee";
-  if (/tiktok/.test(longUrl)) platform = "tiktok";
-  if (/lazada/.test(longUrl)) platform = "lazada";
-
-  if (!ids && platform === "shopee") {
+  if (!ids && !/tiktok|lazada/.test(longUrl)) {
     throw new ApiError(400, "Không trích xuất được itemId/shopId từ link này");
   }
 
@@ -101,7 +168,6 @@ async function parseShopeeLink(rawUrl) {
     itemId: ids ? ids.itemId : null,
     shopId: ids ? ids.shopId : null,
     resolvedUrl: longUrl,
-    platform
   };
 }
 
@@ -109,5 +175,7 @@ module.exports = {
   isShortLink,
   resolveShortLink,
   extractIdsFromLongUrl,
+  extractProductNameFromUrl,
+  extractPriceFromUrl,
   parseShopeeLink,
 };

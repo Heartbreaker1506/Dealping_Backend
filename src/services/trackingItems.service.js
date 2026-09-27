@@ -1,9 +1,8 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
-const { parseShopeeLink } = require("./linkParser.service");
+const { parseShopeeLink, extractProductNameFromUrl, extractPriceFromUrl } = require("./linkParser.service");
 const { fetchCurrentPrice } = require("./shopeePriceService");
-const { fetchLazadaInfo } = require("./lazadaPriceService");
-const { fetchTiktokInfo } = require("./tiktokPriceService");
+const tiktokPriceService = require("./tiktokPriceService");
 
 /**
  * unlockedSlot2 = false -> tối đa 1 item
@@ -13,7 +12,15 @@ function getMaxSlots(user) {
   return user.unlockedSlot2 ? 2 : 1;
 }
 
-async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName, selectedModelId }) {
+async function createTrackingItem({
+  userId,
+  shopeeUrl,
+  targetPrice,
+  variantName,
+  selectedModelId,
+  productName: inputProductName,
+  originalPrice: inputOriginalPrice,
+}) {
   if (!userId || !shopeeUrl || targetPrice === undefined) {
     throw new ApiError(400, "Thiếu userId, shopeeUrl hoặc targetPrice");
   }
@@ -35,7 +42,7 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName,
   }
   // ---------------------------------------------------------------------
 
-  const { itemId, shopId, resolvedUrl, platform } = await parseShopeeLink(shopeeUrl);
+  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
 
   // Kiểm tra user đã theo dõi item này chưa (tránh trùng lặp trong 2 slot)
   const existingWhere = itemId
@@ -49,25 +56,37 @@ async function createTrackingItem({ userId, shopeeUrl, targetPrice, variantName,
     throw new ApiError(400, "Bạn đã theo dõi sản phẩm này rồi");
   }
 
-  let currentPrice = null;
-  let productName = null;
-  try {
-    let priceInfo;
-    if (platform === 'lazada') {
-      priceInfo = await fetchLazadaInfo(resolvedUrl);
-    } else if (platform === 'tiktok') {
-      priceInfo = fetchTiktokInfo(resolvedUrl);
-    } else {
-      priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
-    }
-    
-    if (priceInfo) {
+  let currentPrice = inputOriginalPrice || null;
+  let productName = inputProductName?.trim() || null;
+
+  if (itemId && shopId) {
+    try {
+      const priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
       currentPrice = priceInfo.price;
-      productName = priceInfo.productName;
+      if (!productName) {
+        productName = priceInfo.productName;
+      }
+    } catch {
+      // Graceful Fallback: nếu Shopee chặn IP đám mây, không sập luồng
     }
-  } catch {
-    // Không chặn việc tạo item nếu API tạm thời không phản hồi -
-    // job check giá định kỳ sẽ tự cập nhật lại sau.
+  } else if (/tiktok/.test(resolvedUrl)) {
+    try {
+      const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
+      currentPrice = tiktokInfo.price;
+      if (!productName) {
+        productName = tiktokInfo.productName;
+      }
+    } catch {}
+  }
+
+  // Thử trích xuất giá từ link nếu API bị chặn
+  if (!currentPrice) {
+    currentPrice = extractPriceFromUrl(resolvedUrl);
+  }
+
+  // Fallback an toàn: nếu chưa có tên sản phẩm, tự động bóc tách từ URL slug thật
+  if (!productName) {
+    productName = extractProductNameFromUrl(resolvedUrl) || "Sản phẩm theo dõi";
   }
 
   const item = await prisma.trackingItem.create({
@@ -129,10 +148,60 @@ async function getTrackingItemHistory(id) {
   return history;
 }
 
+async function previewTrackingItem(shopeeUrl) {
+  if (!shopeeUrl) throw new ApiError(400, "Thiếu shopeeUrl");
+  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
+  
+  let productName = null;
+  let currentPrice = null;
+
+  // 1. Thử lấy giá thật và tên từ API Shopee nếu có itemId & shopId
+  if (itemId && shopId) {
+    try {
+      const priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
+      currentPrice = priceInfo.price;
+      productName = priceInfo.productName;
+    } catch {
+      // Shopee chặn IP cloud -> fallback bóc tách từ link
+    }
+  } else if (/tiktok/.test(resolvedUrl)) {
+    try {
+      const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
+      currentPrice = tiktokInfo.price;
+      productName = tiktokInfo.productName;
+    } catch {}
+  }
+
+  // 2. Thử bóc tách giá từ URL (ví dụ link Lazada có displayPrice)
+  if (!currentPrice) {
+    currentPrice = extractPriceFromUrl(resolvedUrl);
+  }
+
+  // 3. Fallback bóc tách tên sản phẩm từ URL slug thật
+  if (!productName) {
+    productName = extractProductNameFromUrl(resolvedUrl) || "Sản phẩm theo dõi";
+  }
+
+  return {
+    productName,
+    currentPrice,
+    price: currentPrice,
+    resolvedUrl,
+    variants: [
+      "Mặc định (Tất cả phân loại)",
+      "Màu Đen",
+      "Màu Trắng",
+      "Size M",
+      "Size L",
+    ],
+  };
+}
+
 module.exports = {
   getMaxSlots,
   createTrackingItem,
   listTrackingItems,
   deleteTrackingItem,
   getTrackingItemHistory,
+  previewTrackingItem,
 };

@@ -1,44 +1,53 @@
 const cron = require("node-cron");
 const prisma = require("../config/prisma");
-const { fetchCurrentPrice } = require("./shopeePriceService");
-const { sendPushNotification } = require("./notificationService");
+const { fetchCurrentPrice: fetchShopeePrice } = require("./shopeePriceService");
+const tiktokPriceService = require("./tiktokPriceService");
 
 /**
  * Bắt đầu các cron jobs để lấy giá tự động.
  */
 function startCronJobs() {
-  // Chạy mỗi 30 phút (tương đương với việc quét định kỳ để xem có sập giá không)
-  // Có thể dùng chuỗi "*/30 * * * *" hoặc kết hợp các khung giờ flash sale nếu cần
+  // Chạy mỗi 30 phút quét giá tự động các sản phẩm đang theo dõi
   cron.schedule("*/30 * * * *", async () => {
     console.log("[CRON] Bắt đầu quét giá các sản phẩm đang TRACKING...");
     try {
       const trackingItems = await prisma.trackingItem.findMany({
         where: { status: "TRACKING" },
-        include: { user: true },
       });
 
       for (const item of trackingItems) {
-        if (!item.itemId || !item.shopId) {
-          console.warn(`[CRON] Bỏ qua sản phẩm ${item.id} vì thiếu itemId hoặc shopId`);
-          continue;
-        }
-
         try {
-          const { price } = await fetchCurrentPrice(
-            item.itemId.toString(),
-            item.shopId.toString()
-          );
+          let currentPrice = null;
+
+          if (item.shopeeUrl && /tiktok/.test(item.shopeeUrl)) {
+            const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(item.shopeeUrl, item.itemId?.toString());
+            currentPrice = tiktokInfo.price;
+          } else if (item.itemId && item.shopId) {
+            const shopeeInfo = await fetchShopeePrice(
+              item.itemId.toString(),
+              item.shopId.toString(),
+              item.shopeeUrl || ""
+            );
+            currentPrice = shopeeInfo.price;
+          } else if (item.shopeeUrl) {
+            const shopeeInfo = await fetchShopeePrice(null, null, item.shopeeUrl);
+            currentPrice = shopeeInfo.price;
+          }
+
+          if (!currentPrice || currentPrice <= 0) {
+            continue;
+          }
 
           // Lưu vào lịch sử giá
           await prisma.priceHistory.create({
             data: {
               trackingItemId: item.id,
-              price: price,
+              price: currentPrice,
             },
           });
 
           // So sánh giá với targetPrice
-          if (price <= item.targetPrice.toNumber()) {
+          if (currentPrice <= item.targetPrice.toNumber()) {
             await prisma.trackingItem.update({
               where: { id: item.id },
               data: { status: "TARGET_HIT" },
@@ -46,22 +55,12 @@ function startCronJobs() {
             console.log(
               `[CRON] TING TING SẬP GIÁ: Sản phẩm ${
                 item.productName || item.id
-              } đã đạt giá mục tiêu (${price} <= ${item.targetPrice.toNumber()})!`
+              } đã đạt giá mục tiêu (${currentPrice} <= ${item.targetPrice.toNumber()})!`
             );
-
-            // Gửi Push Notification cho người dùng
-            if (item.user && item.user.deviceToken) {
-              const title = `🔥 SẬP GIÁ: ${item.productName || 'Sản phẩm bạn theo dõi'}`;
-              const body = `Giá đã giảm chạm đáy mục tiêu (${price}đ). Bấm vào mua ngay kẻo lỡ!`;
-              const data = { 
-                shopeeUrl: item.shopeeUrl || "",
-                itemId: item.itemId ? item.itemId.toString() : "",
-              };
-              
-              await sendPushNotification(item.user.deviceToken, title, body, data);
-            }
           } else {
-             console.log(`[CRON] Sản phẩm ${item.productName || item.id} giá hiện tại: ${price}, chưa đạt mục tiêu (${item.targetPrice.toNumber()}).`);
+            console.log(
+              `[CRON] Sản phẩm ${item.productName || item.id} giá hiện tại: ${currentPrice}, chưa đạt mục tiêu (${item.targetPrice.toNumber()}).`
+            );
           }
         } catch (error) {
           console.error(`[CRON] Lỗi khi quét giá cho sản phẩm ${item.id}:`, error.message);
