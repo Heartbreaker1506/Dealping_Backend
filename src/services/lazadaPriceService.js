@@ -1,45 +1,40 @@
 const axios = require("axios");
 
 /**
- * Fetch Lazada title and try to extract price from URL.
- * Lazada HTML is complex and heavily minified, so price might not be in HTML.
+ * Lấy giá và thông tin sản phẩm Lazada qua cộng đồng AddLiveTag
+ * @param {string} url - URL sản phẩm Lazada
  */
-async function fetchLazadaInfo(url) {
-  let productName = "Sản phẩm Lazada";
-  let price = 0;
-  
+async function fetchCurrentPrice(url = "") {
+  const apiKey = process.env.ADDLIVETAG_API_KEY || "d6a8444ee2905b22025df808705841ce5a0e5f168dc3f83b";
   try {
-    const res = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      },
-      timeout: 5000
+    const { data } = await axios.get(`https://data.addlivetag.com/lazada/product.php?url=${encodeURIComponent(url)}&key=${apiKey}`, {
+      timeout: 10000,
     });
     
-    const html = res.data;
-    const titleMatch = html.match(/<title>(.*?)<\/title>/);
-    if (titleMatch) {
-      productName = titleMatch[1].split(' | ')[0];
-      productName = productName.replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+    if (data && data.productInfo) {
+      return {
+        price: data.productInfo.price,
+        productName: data.productInfo.productName,
+        variants: ["Mặc định (Tất cả phân loại)"],
+        flashSalePrice: null,
+        cashbackCommission: Math.round((data.productInfo.price || 0) * 0.05), // Hoa hồng chuẩn
+        discountCodes: [],
+      };
     }
   } catch (err) {
-    console.error("Lazada fetch error:", err.message);
-  }
-
-  // Try to extract price from URL query (e.g., displayPrice%3A416000)
-  const priceMatch = url.match(/displayPrice%3A(\d+)/) || url.match(/displayPrice:(\d+)/);
-  if (priceMatch) {
-    price = parseInt(priceMatch[1], 10);
+    console.error("Lỗi khi lấy giá Lazada qua AddLiveTag:", err.message);
   }
 
   return {
-    price,
-    productName,
-    variants: ["Mặc định (Tất cả phân loại)"],
+    price: 0,
+    productName: "Không thể lấy tên sản phẩm",
+    variants: [],
     flashSalePrice: null,
-    cashbackCommission: null,
+    cashbackCommission: 0,
     discountCodes: []
   };
 }
 
-module.exports = { fetchLazadaInfo };
+module.exports = {
+  fetchCurrentPrice
+};

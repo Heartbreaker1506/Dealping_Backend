@@ -138,33 +138,47 @@ function extractPriceFromUrl(url) {
 }
 
 /**
- * Entry point chính: nhận vào bất kỳ link Shopee nào (dài hoặc rút gọn),
- * trả về { itemId, shopId, resolvedUrl }.
+ * Tự động phát hiện platform dựa trên hostname
  */
-async function parseShopeeLink(rawUrl) {
+function identifyPlatform(hostname) {
+  if (/shopee|shp\.ee/.test(hostname)) return "SHOPEE";
+  if (/tiktok|shorten\.asia/.test(hostname)) return "TIKTOK"; // shorten.asia thường dùng cho tiktok trong dự án này
+  if (/lazada|s\.lazada\.vn/.test(hostname)) return "LAZADA";
+  return null;
+}
+
+/**
+ * Entry point chính: nhận vào bất kỳ link sản phẩm nào (dài hoặc rút gọn),
+ * trả về { platform, itemId, shopId, resolvedUrl }.
+ */
+async function parseProductLink(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") {
-    throw new ApiError(400, "shopeeUrl không hợp lệ");
+    throw new ApiError(400, "URL không hợp lệ");
   }
 
   let url;
   try {
     url = new URL(rawUrl.trim());
   } catch {
-    throw new ApiError(400, "shopeeUrl không đúng định dạng URL");
+    throw new ApiError(400, "URL không đúng định dạng");
   }
 
-  if (!/shopee|tiktok|lazada/.test(url.hostname) && !SHORT_LINK_HOSTS.includes(url.hostname)) {
+  const platform = identifyPlatform(url.hostname);
+
+  if (!platform && !SHORT_LINK_HOSTS.includes(url.hostname)) {
     throw new ApiError(400, "Link không thuộc hệ thống Shopee, TikTok Shop hoặc Lazada");
   }
 
   const longUrl = isShortLink(rawUrl) ? await resolveShortLink(rawUrl) : rawUrl;
   const ids = extractIdsFromLongUrl(longUrl);
+  const finalPlatform = identifyPlatform(new URL(longUrl).hostname) || platform;
 
-  if (!ids && !/tiktok|lazada/.test(longUrl)) {
-    throw new ApiError(400, "Không trích xuất được itemId/shopId từ link này");
+  if (!ids && finalPlatform === "SHOPEE") {
+    throw new ApiError(400, "Không trích xuất được itemId/shopId từ link Shopee này");
   }
 
   return {
+    platform: finalPlatform,
     itemId: ids ? ids.itemId : null,
     shopId: ids ? ids.shopId : null,
     resolvedUrl: longUrl,
@@ -177,5 +191,6 @@ module.exports = {
   extractIdsFromLongUrl,
   extractProductNameFromUrl,
   extractPriceFromUrl,
-  parseShopeeLink,
+  parseProductLink,
+  identifyPlatform,
 };

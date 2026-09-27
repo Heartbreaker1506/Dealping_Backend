@@ -31,18 +31,26 @@ model User {
   @@map("users")
 }
 
+enum Platform {
+  SHOPEE
+  TIKTOK
+  LAZADA
+}
+
 model TrackingItem {
   id            String     @id @default(uuid())
   userId        String     @map("user_id")
   productName   String?    @map("product_name")
 
-  // Trích xuất từ shopeeUrl bởi module parser - cần để gọi API lấy giá định kỳ
+  // Trích xuất từ URL - cần để gọi API lấy giá định kỳ (cho Shopee)
   itemId        BigInt?    @map("item_id")
   shopId        BigInt?    @map("shop_id")
 
   originalPrice Decimal?   @map("original_price") @db.Decimal(12, 2)
   targetPrice   Decimal    @map("target_price") @db.Decimal(12, 2)
-  shopeeUrl     String     @map("shopee_url")
+  productUrl    String     @map("shopee_url") // Giữ column name shopee_url để không mất data
+  platform      Platform   @default(SHOPEE)
+  affiliateUrl  String?    @map("affiliate_url")
   status        ItemStatus @default(TRACKING)
   
   // Lưu phân loại hàng (Color/Size/SKU)
@@ -54,7 +62,8 @@ model TrackingItem {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   priceHistories PriceHistory[]
 
-  @@unique([userId, itemId], name: "uniq_user_item")
+  // Do URL/itemId khác nhau giữa các sàn, tạm thời bỏ unique constraint để tránh lỗi
+  // @@unique([userId, itemId], name: "uniq_user_item")
   @@map("tracking_items")
 }
 

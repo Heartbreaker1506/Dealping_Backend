@@ -1,7 +1,8 @@
 const cron = require("node-cron");
 const prisma = require("../config/prisma");
-const { fetchCurrentPrice: fetchShopeePrice } = require("./shopeePriceService");
+const shopeePriceService = require("./shopeePriceService");
 const tiktokPriceService = require("./tiktokPriceService");
+const lazadaPriceService = require("./lazadaPriceService");
 
 /**
  * Bắt đầu các cron jobs để lấy giá tự động.
@@ -18,20 +19,21 @@ function startCronJobs() {
       for (const item of trackingItems) {
         try {
           let currentPrice = null;
+          const url = item.productUrl; // productUrl được map sang DB column shopee_url
 
-          if (item.shopeeUrl && /tiktok/.test(item.shopeeUrl)) {
-            const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(item.shopeeUrl, item.itemId?.toString());
-            currentPrice = tiktokInfo.price;
-          } else if (item.itemId && item.shopId) {
-            const shopeeInfo = await fetchShopeePrice(
-              item.itemId.toString(),
-              item.shopId.toString(),
-              item.shopeeUrl || ""
+          if (item.platform === "SHOPEE") {
+            const shopeeInfo = await shopeePriceService.fetchCurrentPrice(
+              item.itemId ? item.itemId.toString() : null,
+              item.shopId ? item.shopId.toString() : null,
+              url
             );
             currentPrice = shopeeInfo.price;
-          } else if (item.shopeeUrl) {
-            const shopeeInfo = await fetchShopeePrice(null, null, item.shopeeUrl);
-            currentPrice = shopeeInfo.price;
+          } else if (item.platform === "TIKTOK") {
+            const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(url);
+            currentPrice = tiktokInfo.price;
+          } else if (item.platform === "LAZADA") {
+            const lazadaInfo = await lazadaPriceService.fetchCurrentPrice(url);
+            currentPrice = lazadaInfo.price;
           }
 
           if (!currentPrice || currentPrice <= 0) {

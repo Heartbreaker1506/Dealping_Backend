@@ -1,8 +1,10 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
-const { parseShopeeLink, extractProductNameFromUrl, extractPriceFromUrl } = require("./linkParser.service");
-const { fetchCurrentPrice } = require("./shopeePriceService");
+const { parseProductLink, extractProductNameFromUrl, extractPriceFromUrl } = require("./linkParser.service");
+const shopeePriceService = require("./shopeePriceService");
 const tiktokPriceService = require("./tiktokPriceService");
+const lazadaPriceService = require("./lazadaPriceService");
+const affiliateService = require("./affiliate.service");
 
 /**
  * unlockedSlot2 = false -> tối đa 1 item
@@ -14,15 +16,17 @@ function getMaxSlots(user) {
 
 async function createTrackingItem({
   userId,
-  shopeeUrl,
+  shopeeUrl, // frontend vẫn gửi shopeeUrl hoặc productUrl
+  productUrl,
   targetPrice,
   variantName,
   selectedModelId,
   productName: inputProductName,
   originalPrice: inputOriginalPrice,
 }) {
-  if (!userId || !shopeeUrl || targetPrice === undefined) {
-    throw new ApiError(400, "Thiếu userId, shopeeUrl hoặc targetPrice");
+  const finalUrl = shopeeUrl || productUrl;
+  if (!userId || !finalUrl || targetPrice === undefined) {
+    throw new ApiError(400, "Thiếu userId, productUrl hoặc targetPrice");
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -30,7 +34,6 @@ async function createTrackingItem({
     throw new ApiError(404, "Không tìm thấy user");
   }
 
-  // ---- VALIDATION CỨNG: chặn tạo item thứ 3 (hoặc thứ 2 nếu chưa unlock) ----
   const currentCount = await prisma.trackingItem.count({ where: { userId } });
   const maxSlots = getMaxSlots(user);
 
@@ -40,52 +43,51 @@ async function createTrackingItem({
       `Bạn đã đạt giới hạn ${maxSlots} sản phẩm theo dõi. Vui lòng xoá bớt hoặc mở khoá thêm slot.`
     );
   }
-  // ---------------------------------------------------------------------
 
-  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
+  const { platform, itemId, shopId, resolvedUrl } = await parseProductLink(finalUrl);
 
-  // Kiểm tra user đã theo dõi item này chưa (tránh trùng lặp trong 2 slot)
   const existingWhere = itemId
     ? { userId, itemId: BigInt(itemId) }
-    : { userId, shopeeUrl: resolvedUrl };
+    : { userId, productUrl: resolvedUrl };
 
   const existing = await prisma.trackingItem.findFirst({
     where: existingWhere,
   });
+  
   if (existing) {
     throw new ApiError(400, "Bạn đã theo dõi sản phẩm này rồi");
   }
 
   let currentPrice = inputOriginalPrice || null;
   let productName = inputProductName?.trim() || null;
+  let affiliateUrl = null;
 
-  if (itemId && shopId) {
-    try {
-      const priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
-      currentPrice = priceInfo.price;
-      if (!productName) {
-        productName = priceInfo.productName;
-      }
-    } catch {
-      // Graceful Fallback: nếu Shopee chặn IP đám mây, không sập luồng
+  try {
+    if (platform === "SHOPEE") {
+      const priceInfo = await shopeePriceService.fetchCurrentPrice(itemId, shopId, resolvedUrl);
+      if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
+      if (!productName) productName = priceInfo.productName;
+      affiliateUrl = affiliateService.generateShopeeAffiliate(resolvedUrl);
+    } else if (platform === "TIKTOK") {
+      const priceInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
+      if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
+      if (!productName) productName = priceInfo.productName;
+      affiliateUrl = await affiliateService.generateTikTokAffiliate(resolvedUrl);
+    } else if (platform === "LAZADA") {
+      const priceInfo = await lazadaPriceService.fetchCurrentPrice(resolvedUrl);
+      if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
+      if (!productName) productName = priceInfo.productName;
+      affiliateUrl = await affiliateService.generateLazadaAffiliate(resolvedUrl);
     }
-  } else if (/tiktok/.test(resolvedUrl)) {
-    try {
-      const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
-      currentPrice = tiktokInfo.price;
-      if (!productName) {
-        productName = tiktokInfo.productName;
-      }
-    } catch {}
+  } catch (err) {
+    console.error("Error fetching price in create:", err.message);
   }
 
-  // Thử trích xuất giá từ link nếu API bị chặn
   if (!currentPrice) {
     currentPrice = extractPriceFromUrl(resolvedUrl);
   }
 
-  // Fallback an toàn: nếu chưa có tên sản phẩm, tự động bóc tách từ URL slug thật
-  if (!productName) {
+  if (!productName || productName === "Không thể lấy tên sản phẩm") {
     productName = extractProductNameFromUrl(resolvedUrl) || "Sản phẩm theo dõi";
   }
 
@@ -97,7 +99,9 @@ async function createTrackingItem({
       shopId: shopId ? BigInt(shopId) : null,
       originalPrice: currentPrice,
       targetPrice,
-      shopeeUrl: resolvedUrl,
+      productUrl: resolvedUrl,
+      platform: platform || "SHOPEE",
+      affiliateUrl: affiliateUrl,
       status: "TRACKING",
       variantName,
       selectedModelId: selectedModelId ? BigInt(selectedModelId) : null,
@@ -124,7 +128,6 @@ async function deleteTrackingItem(id, userId) {
   await prisma.trackingItem.delete({ where: { id } });
 }
 
-// BigInt không tự serialize sang JSON được -> convert sang string trước khi trả response
 function serializeItem(item) {
   return {
     ...item,
@@ -148,37 +151,39 @@ async function getTrackingItemHistory(id) {
   return history;
 }
 
-async function previewTrackingItem(shopeeUrl) {
-  if (!shopeeUrl) throw new ApiError(400, "Thiếu shopeeUrl");
-  const { itemId, shopId, resolvedUrl } = await parseShopeeLink(shopeeUrl);
+async function previewTrackingItem(urlParams) {
+  // urlParams có thể là shopeeUrl do FE gửi lên
+  const finalUrl = urlParams;
+  if (!finalUrl) throw new ApiError(400, "Thiếu đường dẫn sản phẩm");
+  
+  const { platform, itemId, shopId, resolvedUrl } = await parseProductLink(finalUrl);
   
   let productName = null;
   let currentPrice = null;
 
-  // 1. Thử lấy giá thật và tên từ API Shopee nếu có itemId & shopId
-  if (itemId && shopId) {
-    try {
-      const priceInfo = await fetchCurrentPrice(itemId, shopId, resolvedUrl);
+  try {
+    if (platform === "SHOPEE") {
+      const priceInfo = await shopeePriceService.fetchCurrentPrice(itemId, shopId, resolvedUrl);
       currentPrice = priceInfo.price;
       productName = priceInfo.productName;
-    } catch {
-      // Shopee chặn IP cloud -> fallback bóc tách từ link
+    } else if (platform === "TIKTOK") {
+      const priceInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
+      currentPrice = priceInfo.price;
+      productName = priceInfo.productName;
+    } else if (platform === "LAZADA") {
+      const priceInfo = await lazadaPriceService.fetchCurrentPrice(resolvedUrl);
+      currentPrice = priceInfo.price;
+      productName = priceInfo.productName;
     }
-  } else if (/tiktok/.test(resolvedUrl)) {
-    try {
-      const tiktokInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
-      currentPrice = tiktokInfo.price;
-      productName = tiktokInfo.productName;
-    } catch {}
+  } catch (err) {
+    console.error("Preview error:", err.message);
   }
 
-  // 2. Thử bóc tách giá từ URL (ví dụ link Lazada có displayPrice)
   if (!currentPrice) {
     currentPrice = extractPriceFromUrl(resolvedUrl);
   }
 
-  // 3. Fallback bóc tách tên sản phẩm từ URL slug thật
-  if (!productName) {
+  if (!productName || productName === "Không thể lấy tên sản phẩm") {
     productName = extractProductNameFromUrl(resolvedUrl) || "Sản phẩm theo dõi";
   }
 
@@ -187,12 +192,9 @@ async function previewTrackingItem(shopeeUrl) {
     currentPrice,
     price: currentPrice,
     resolvedUrl,
+    platform,
     variants: [
-      "Mặc định (Tất cả phân loại)",
-      "Màu Đen",
-      "Màu Trắng",
-      "Size M",
-      "Size L",
+      "Mặc định (Tất cả phân loại)"
     ],
   };
 }
