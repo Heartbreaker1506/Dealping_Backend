@@ -18,6 +18,9 @@ async function fetchCurrentPrice(itemId, shopId, url = "") {
       return {
         price: data.productInfo.price, // Giá thật
         productName: data.productInfo.productName,
+        imageUrl: data.productInfo.imageUrl || null,
+        isXtra: data.productInfo.isXtra,
+        sellerComFinal: data.productInfo.sellerComFinal,
         variants: ["Mặc định (Tất cả phân loại)"],
         flashSalePrice: null,
         cashbackCommission: Math.round((data.productInfo.price || 0) * 0.05),
@@ -31,6 +34,9 @@ async function fetchCurrentPrice(itemId, shopId, url = "") {
   return {
     price: 0,
     productName: "Không thể lấy tên sản phẩm",
+    imageUrl: null,
+    isXtra: false,
+    sellerComFinal: 0,
     variants: [],
     flashSalePrice: null,
     cashbackCommission: 0,

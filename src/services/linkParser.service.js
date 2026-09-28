@@ -56,8 +56,10 @@ function extractIdsFromLongUrl(longUrl) {
   const patternI = /-i\.(\d+)\.(\d+)(?:[/?#]|$)/;
   // Pattern 2: /product/123456/789012
   const patternProduct = /\/product\/(\d+)\/(\d+)/;
+  // Pattern 3: /opaanlp/123456/789012
+  const patternOpa = /\/opaanlp\/(\d+)\/(\d+)/;
 
-  let match = longUrl.match(patternI) || longUrl.match(patternProduct);
+  let match = longUrl.match(patternI) || longUrl.match(patternProduct) || longUrl.match(patternOpa);
 
   if (!match) {
     return null;
@@ -155,6 +157,9 @@ async function parseProductLink(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") {
     throw new ApiError(400, "URL không hợp lệ");
   }
+
+  const urlMatch = rawUrl.match(/https?:\/\/[^\s]+/);
+  if (urlMatch) rawUrl = urlMatch[0];
 
   let url;
   try {
