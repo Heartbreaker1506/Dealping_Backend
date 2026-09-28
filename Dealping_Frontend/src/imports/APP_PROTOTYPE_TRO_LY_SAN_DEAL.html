@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TRỢ LÝ SĂN DEAL — Tối đa 2 món & Chọn Phân Loại Màu/Size</title>
+  
+  <!-- PWA & Apple Web App Meta -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Trợ Lý Săn Deal">
+  <meta name="theme-color" content="#2563EB">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Tailwind CSS CDN & Backup -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* ================= APPLE FLUID ANIMATED MESH GRADIENT ================= */
+    @keyframes apple-mesh-spin {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      33% { transform: translate(35px, -45px) scale(1.2) rotate(120deg); }
+      66% { transform: translate(-30px, 35px) scale(0.85) rotate(240deg); }
+      100% { transform: translate(0, 0) scale(1) rotate(360deg); }
+    }
+
+    @keyframes apple-mesh-drift {
+      0% { transform: translate(0, 0) scale(1.1) rotate(0deg); }
+      50% { transform: translate(-40px, -30px) scale(0.9) rotate(-180deg); }
+      100% { transform: translate(0, 0) scale(1.1) rotate(-360deg); }
+    }
+
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* BUBBLE DRIFT STRICTLY IN RADAR HEADER ZONE */
+    @keyframes radar-bubble-drift {
+      0% { 
+        transform: translateY(20px) translateX(0) scale(0.7); 
+        opacity: 0; 
+      }
+      20% { 
+        opacity: 0.95; 
+      }
+      50% { 
+        transform: translateY(-65px) translateX(12px) scale(1.05); 
+        opacity: 0.95; 
+      }
+      80% { 
+        opacity: 0.95; 
+      }
+      100% { 
+        transform: translateY(-155px) translateX(-10px) scale(0.8); 
+        opacity: 0; 
+      }
+    }
+
+    @keyframes pop-sparkle {
+      0% { transform: scale(1); opacity: 1; }
+      40% { transform: scale(1.7); opacity: 0.9; filter: brightness(1.8) drop-shadow(0 0 8px rgba(236,72,153,0.8)); }
+      100% { transform: scale(0); opacity: 0; }
+    }
+
+    @keyframes slide-down-new-slot {
+      0% { opacity: 0; transform: translateY(-30px) scale(0.92); }
+      60% { transform: translateY(6px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* BUBBLE ITEM: Must have pointer-events auto & high z-index inside radar area */
+    .bubble-item {
+      position: absolute;
+      border-radius: 9999px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      user-select: none;
+      pointer-events: auto !important;
+      z-index: 25;
+      transition: transform 0.15s ease;
+    }
+    .bubble-item:hover {
+      transform: scale(1.15);
+    }
+    .bubble-item:active {
+      transform: scale(0.9);
+    }
+
+    .bubble-popped {
+      animation: pop-sparkle 0.3s forwards cubic-bezier(0.1, 0.9, 0.2, 1) !important;
+      pointer-events: none !important;
+    }
+
+    .animate-new-slot {
+      animation: slide-down-new-slot 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Screen Canvas */
+    .apple-screen-canvas.light-mode {
+      background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 50%, #fbc2eb 100%);
+      background-size: 300% 300%;
+      animation: gradient-shift 14s ease infinite;
+    }
+    .apple-screen-canvas.dark-mode {
+      background: #08090E;
+    }
+
+    .orb-1 { animation: apple-mesh-spin 15s infinite ease-in-out; filter: blur(55px); }
+    .orb-2 { animation: apple-mesh-drift 18s infinite ease-in-out; filter: blur(55px); }
+    .orb-3 { animation: apple-mesh-spin 22s infinite reverse ease-in-out; filter: blur(60px); }
+    .orb-4 { animation: apple-mesh-drift 14s infinite alternate ease-in-out; filter: blur(50px); }
+
+    /* Light Mode */
+    .light-mode .apple-glass {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8px 20px -3px rgba(0, 0, 0, 0.04);
+      color: #0f172a;
+    }
+    .light-mode .apple-sheet {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(35px);
+      -webkit-backdrop-filter: blur(35px);
+      border-top: 1px solid rgba(255, 255, 255, 0.85);
+      color: #0f172a;
+    }
+    .light-mode .apple-input {
+      background: rgba(243, 245, 249, 0.95);
+      border: 2px solid transparent;
+      color: #0f172a;
+    }
+
+    /* Dark Mode */
+    .dark-mode .apple-glass {
+      background: rgba(20, 24, 38, 0.82);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+      color: #f8fafc;
+    }
+    .dark-mode .apple-sheet {
+      background: rgba(14, 17, 26, 0.95);
+      backdrop-filter: blur(35px);
+      -webkit-backdrop-filter: blur(35px);
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      color: #f8fafc;
+    }
+    .dark-mode .apple-input {
+      background: rgba(24, 28, 44, 0.92);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    .apple-glow-btn {
+      background: linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #EC4899 100%);
+      background-size: 200% 200%;
+      animation: gradient-shift 6s ease infinite;
+      box-shadow: 0 8px 25px -4px rgba(124, 58, 237, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-[#0b0c12] text-slate-800 font-sans min-h-screen flex items-center justify-center p-0 sm:p-4 md:p-6 select-none">
+
+  <!-- MAIN WRAPPER: Mobile Fullscreen / Desktop Side-by-side -->
+  <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+    
+    <!-- LEFT: iPhone Frame / Mobile Screen (lg:col-span-6) -->
+    <div class="lg:col-span-6 flex justify-center w-full">
+      <div class="w-full sm:w-[375px] h-screen sm:h-[760px] sm:rounded-[52px] p-0 sm:p-3 bg-gradient-to-b from-neutral-700 via-neutral-800 to-neutral-900 sm:shadow-[0_25px_60px_rgba(0,0,0,0.8),0_0_50px_rgba(124,58,237,0.3)] sm:border-4 sm:border-neutral-700 relative flex flex-col overflow-hidden">
+        
+        <!-- Dynamic Island (Only on desktop frame or tall screens) -->
+        <div class="hidden sm:flex absolute top-5 left-1/2 -translate-x-1/2 h-7 px-3.5 bg-black rounded-full z-40 items-center space-x-2">
+          <span class="text-[10px] font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-400 to-amber-300">PING DEAL</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+        </div>
+
+        <!-- Phone Screen Container -->
+        <div id="phone-screen" class="w-full h-full sm:rounded-[42px] overflow-hidden relative apple-screen-canvas light-mode flex flex-col transition-colors duration-500">
+          
+          <!-- Background Mesh Orbs -->
+          <div id="mesh-container" class="absolute inset-0 overflow-hidden pointer-events-none -z-0">
+            <div id="orb-1" class="orb-1 absolute -top-16 -left-16 w-64 h-64 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 opacity-70 mix-blend-multiply"></div>
+            <div id="orb-2" class="orb-2 absolute top-1/4 -right-20 w-72 h-72 rounded-full bg-gradient-to-bl from-purple-600 via-indigo-500 to-blue-500 opacity-70 mix-blend-multiply"></div>
+            <div id="orb-3" class="orb-3 absolute -bottom-16 left-8 w-64 h-64 rounded-full bg-gradient-to-tr from-amber-400 via-orange-400 to-rose-400 opacity-65 mix-blend-multiply"></div>
+            <div id="orb-4" class="orb-4 absolute top-1/2 left-1/4 w-56 h-56 rounded-full bg-gradient-to-r from-cyan-400 to-sky-500 opacity-60 mix-blend-multiply"></div>
+          </div>
+
+          <!-- TOAST NOTIFICATION IN-APP -->
+          <div id="toast-notification" class="hidden absolute top-14 left-4 right-4 z-50 bg-neutral-900/95 text-white px-3.5 py-2.5 rounded-2xl border border-white/20 shadow-2xl flex items-center space-x-2.5 transition-all">
+            <span class="text-base" id="toast-icon">✨</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] font-black text-pink-400 truncate" id="toast-title">Thông báo</div>
+              <div class="text-[9px] opacity-85 truncate" id="toast-message">Nội dung</div>
+            </div>
+          </div>
+
+          <!-- PWA INSTALL PROMPT BANNER (FOR REAL PHONES) -->
+          <div id="pwa-install-banner" class="sm:hidden absolute top-12 left-3 right-3 z-40 bg-neutral-900/90 backdrop-blur-md border border-purple-500/30 text-white p-2.5 rounded-2xl shadow-xl flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">📲</span>
+              <span class="text-[10px] text-neutral-200">Nhấn <b>Chia sẻ</b> ➔ <b>Thêm vào MH chính</b> để cài App!</span>
+            </div>
+            <button onclick="document.getElementById('pwa-install-banner').remove()" class="text-[10px] px-2 py-0.5 rounded-md bg-white/20 font-bold">✕</button>
+          </div>
+
+          <!-- Status Bar & Nút Gạt White/Black -->
+          <div class="pt-8 px-6 pb-2 flex justify-between items-center text-[12px] font-bold z-30" id="status-bar-text">
+            <span>11:32</span>
+            
+            <div class="flex items-center space-x-2">
+              <button onclick="toggleTheme()" title="Gạt chuyển giao diện Sáng / Tối" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-black/10 dark-trigger border border-white/40 shadow-sm active:scale-95 transition-all cursor-pointer">
+                <span id="theme-switch-icon" class="text-[11px]">☀️</span>
+                <span id="theme-switch-text" class="text-[9px] font-bold">Light</span>
+                <div id="ios-switch-pill" class="w-6 h-3.5 bg-slate-300 rounded-full relative p-0.5 transition-colors">
+                  <div id="ios-switch-thumb" class="w-2.5 h-2.5 bg-white rounded-full transition-transform translate-x-0 shadow-sm"></div>
+                </div>
+              </button>
+              <div class="w-5 h-2.5 border border-current rounded-sm p-0.5 flex items-center">
+                <div class="w-full h-full bg-current rounded-xs"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= TAB 1: ONBOARDING 4 BƯỚC ================= -->
+          <div id="view-onboarding" class="flex-1 flex flex-col px-5 py-2 overflow-y-auto relative z-10">
+            <div class="mt-2 mb-3">
+              <div class="flex items-center space-x-2">
+                <span class="text-xl font-black tracking-tight">Trợ Lý Săn Deal</span>
+                <span class="text-[9px] font-bold bg-white/20 px-2 py-0.5 rounded-full border border-white/30">v1.0</span>
+              </div>
+              <p class="text-[11px] opacity-75 font-medium mt-0.5">Tối đa 2 món — Siêu tốc, không rườm rà</p>
+            </div>
+
+            <div class="relative py-2 my-auto">
+              <div class="absolute left-5 top-5 bottom-5 w-1 bg-white/40 rounded-full -z-0"></div>
+              <div class="space-y-3 relative z-10">
+                <div class="flex items-center space-x-3.5">
+                  <div class="w-9 h-9 rounded-full apple-glow-btn text-white flex items-center justify-center font-bold text-xs shadow-md shrink-0 ring-4 ring-white/40">1</div>
+                  <div class="flex-1 apple-glass rounded-[24px] p-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-xs font-bold">Đăng nhập 1 chạm</span>
+                      <span class="text-[9px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">Không cần OTP</span>
+                    </div>
+                    <div class="flex space-x-1.5 mt-1.5">
+                      <span class="text-[9px] font-semibold bg-slate-900 text-white px-2.5 py-1 rounded-xl"> Apple ID</span>
+                      <span class="text-[9px] font-semibold bg-white/90 text-slate-800 px-2.5 py-1 rounded-xl">G Google</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-3.5">
+                  <div class="w-9 h-9 rounded-full bg-white/90 text-purple-600 border-2 border-purple-500 flex items-center justify-center font-bold text-xs shadow-sm shrink-0">2</div>
+                  <div class="flex-1 apple-glass rounded-[24px] p-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-xs font-bold">Mở thông báo máy</span>
+                      <span class="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">Cốt lõi</span>
+                    </div>
+                    <p class="text-[10px] opacity-75 mt-0.5">Ping chuông ngay tức thì khi sàn vừa sập giá</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-3.5">
+                  <div class="w-9 h-9 rounded-full bg-white/40 text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 border border-white/30">3</div>
+                  <div class="flex-1 apple-glass rounded-[24px] p-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-xs font-bold">Chỉ theo dõi tối đa 2 món</span>
+                      <span class="text-[9px] font-bold text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded-full">Tập trung</span>
+                    </div>
+                    <p class="text-[10px] opacity-75 mt-0.5">Không theo dõi cả chục món gây loạn và sập server</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-3.5">
+                  <div class="w-9 h-9 rounded-full bg-white/40 text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 border border-white/30">4</div>
+                  <div class="flex-1 apple-glass rounded-[24px] p-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-xs font-bold">Bấm 10 bong bóng mở Ô #2</span>
+                      <span class="text-[9px] font-bold text-pink-500 bg-pink-500/10 px-2 py-0.5 rounded-full">Mini-Game</span>
+                    </div>
+                    <p class="text-[10px] opacity-75 mt-0.5">Chạm nổ 10 bóng bay trôi nổi quanh radar để nhận thêm 1 ô!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-auto pb-4">
+              <button onclick="goToMainApp()" class="w-full py-3.5 rounded-[28px] apple-glow-btn text-white font-bold text-sm flex items-center justify-center space-x-2 active:scale-95 transition cursor-pointer shadow-lg hover:opacity-95">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                <span>Vào Trải Nghiệm Thử Ngay</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ================= TAB 2: MÀN HÌNH CHÍNH ================= -->
+          <div id="view-main" class="hidden flex-1 flex flex-col relative overflow-hidden z-10">
+            
+            <!-- ================= RADAR HEADER ZONE (KHU VỰC BONG BÓNG TRÔI NỔI DUY NHẤT) ================= -->
+            <div id="radar-header-area" class="relative h-44 w-full flex items-center justify-center overflow-hidden shrink-0">
+              
+              <!-- Radar Pulsing Rings Background -->
+              <div class="absolute w-36 h-36 rounded-full border-2 border-white/30 animate-ping opacity-20 pointer-events-none"></div>
+              <div class="absolute w-24 h-24 rounded-full border border-pink-400/40 animate-pulse opacity-30 pointer-events-none"></div>
+
+              <!-- LAYER BONG BÓNG CHỈ TRÔI TRONG KHOẢNG TRỐNG QUANH RADAR NÀY -->
+              <div id="bubbles-field" class="absolute inset-0 overflow-hidden pointer-events-none z-20">
+                <!-- Bong bóng trôi nổi được sinh tự động quanh ô Radar Săn Deal Đáy -->
+              </div>
+              
+              <!-- Floating Pill Center (Radar Status) -->
+              <div class="relative z-10 px-4 py-2 rounded-2xl apple-glow-btn text-white shadow-xl flex items-center space-x-2.5 border border-white/40">
+                <span class="text-base">📡</span>
+                <div class="text-left">
+                  <div class="text-[11px] font-black leading-tight">Radar Săn Deal Đáy</div>
+                  <div class="text-[9px] text-white/90">Quét 24/7 (Tối đa 2 món)</div>
+                </div>
+                <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+              </div>
+
+              <!-- Back to Guide Button -->
+              <button onclick="goToOnboarding()" class="absolute top-2 left-4 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-bold border border-white/40 cursor-pointer active:scale-95 transition z-30">
+                ← Hướng dẫn
+              </button>
+
+              <!-- Slot counter badge -->
+              <div class="absolute top-2 right-4 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-black text-purple-400 border border-white/40 flex items-center space-x-1 z-30">
+                <span>Giới hạn:</span>
+                <span id="slot-indicator" class="font-bold text-pink-400">1 / 2 Món</span>
+              </div>
+            </div>
+
+            <!-- ================= BOTTOM SHEET (100% SẠCH SẼ, KHÔNG BỊ BÓNG BAY CHE LẤP) ================= -->
+            <div class="flex-1 apple-sheet rounded-t-[36px] shadow-[0_-10px_35px_rgba(0,0,0,0.12)] px-5 pt-3 pb-3 flex flex-col overflow-y-auto z-10">
+              
+              <div class="w-10 h-1.5 bg-slate-400/40 rounded-full mx-auto mb-2"></div>
+
+              <!-- Header Bottom Sheet -->
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h3 class="text-sm font-black">Ô Săn Deal Của Bạn</h3>
+                  <p class="text-[9px] opacity-75 font-semibold text-pink-500">Quy tắc cứng: Tối đa 2 món thôi! (Đổi món tự do)</p>
+                </div>
+                <span id="active-item-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[9px] font-bold">0/2 món</span>
+              </div>
+
+              <!-- MINI GAME BONG BÓNG TRÔI NỔI (CHẠM 10 BONG BÓNG = MỞ Ô 2) -->
+              <div id="bubble-game-banner" class="bg-gradient-to-r from-pink-500/15 via-purple-500/15 to-cyan-500/15 border border-pink-400/30 rounded-[22px] p-2.5 mb-3 flex items-center justify-between backdrop-blur-sm">
+                <div>
+                  <div class="flex items-center space-x-1">
+                    <span class="text-sm">🫧</span>
+                    <span class="text-[10px] font-bold">Chạm 10 bóng quanh Radar để mở Ô #2</span>
+                  </div>
+                  <div class="flex items-center space-x-2 mt-1">
+                    <div class="w-24 h-1.5 bg-black/20 dark:bg-white/20 rounded-full overflow-hidden border border-pink-400/30">
+                      <div id="bubble-bar" class="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-300" style="width: 0%;"></div>
+                    </div>
+                    <span id="bubble-count-text" class="text-[9px] font-bold text-pink-400">0 / 10 🫧</span>
+                  </div>
+                </div>
+                <span class="text-[8px] bg-pink-500/20 text-pink-400 px-2 py-1 rounded-xl font-semibold animate-pulse">
+                  Bấm bóng trên Radar!
+                </span>
+              </div>
+
+              <!-- CONTAINER CHỨA CÁC Ô DÁN LINK -->
+              <div id="slots-wrapper" class="space-y-2.5 flex-1">
+                
+                <!-- Ô THỨ 2 MỚI MỞ KHÓA (KHI BẤM ĐỦ 10 BONG BÓNG NÓ SẼ HIỆN Ở ĐÂY VÀ ĐẨY Ô 1 XUỐNG) -->
+                <div id="slot-box-2" class="hidden animate-new-slot p-3 rounded-[24px] border-2 border-pink-500/70 bg-gradient-to-b from-pink-500/15 to-purple-500/10 shadow-lg relative">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[9px] font-extrabold bg-gradient-to-r from-pink-500 to-purple-500 text-white px-2 py-0.5 rounded-full shadow-sm">
+                      ✨ Ô TÌM THỨ 2 (ĐÃ MỞ KHÓA - MÓN 2/2)
+                    </span>
+                    <div class="flex items-center space-x-1 text-[8px] font-bold">
+                      <span class="text-orange-500">Shopee</span> •
+                      <span class="text-neutral-800 dark:text-neutral-200">TikTok</span> •
+                      <span class="text-blue-500">Lazada</span>
+                    </div>
+                  </div>
+
+                  <!-- Khung input Ô 2 -->
+                  <div id="input-container-slot-2" class="relative">
+                    <input 
+                      type="text" 
+                      id="input-slot-2"
+                      oninput="checkSlot2Input()"
+                      placeholder="Dán link Shopee/TikTok món thứ 2 vào đây"
+                      class="w-full apple-input placeholder-slate-400 font-medium text-xs rounded-[20px] px-3.5 py-3 pr-20 shadow-inner focus:outline-none transition"
+                    />
+                    <button 
+                      onclick="pasteSlot2Sample()"
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-xl apple-glow-btn text-white text-[9px] font-bold shadow-sm cursor-pointer active:scale-95"
+                    >
+                      📋 Dán món 2
+                    </button>
+                  </div>
+
+                  <!-- Dynamic Reveal cho Ô 2 (CÓ CHỌN MÀU ĐEN/HỒNG/SIZE) -->
+                  <div id="expanded-slot-2" class="hidden mt-2 space-y-2">
+                    <div class="apple-glass rounded-[18px] p-2.5 text-[10px]">
+                      <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold opacity-80">Giá mong muốn món 2:</span>
+                        <span class="text-pink-400 font-bold">Giảm -30%</span>
+                      </div>
+                      <input type="text" value="185.000" class="w-full bg-black/10 dark:bg-white/10 text-current text-xs font-bold rounded-lg px-2 py-1.5 border border-current/20 mb-1.5"/>
+                      
+                      <!-- BỘ LỌC PHÂN LOẠI MÀU SẮC MÓN 2 -->
+                      <div class="pt-1.5 border-t border-current/10">
+                        <div class="flex justify-between items-center mb-1">
+                          <span class="font-bold opacity-80 text-[10px]">Phân loại cần săn:</span>
+                          <span id="slot2-selected-variant" class="text-pink-400 font-bold text-[9px]">👗 Đầm Đen (Size S)</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                          <button type="button" onclick="selectVariant(2, '👗 Đầm Đen (Size S)', this)" class="variant-btn-2 px-2 py-0.5 rounded-lg bg-pink-500 text-white font-bold text-[9px] shadow-sm cursor-pointer">👗 Đen (Size S)</button>
+                          <button type="button" onclick="selectVariant(2, '🌸 Hồng Pastel (Size M)', this)" class="variant-btn-2 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer">🌸 Hồng Pastel</button>
+                          <button type="button" onclick="selectVariant(2, '⚡ Bất kỳ màu nào', this)" class="variant-btn-2 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer">Tất cả màu</button>
+                        </div>
+                      </div>
+
+                      <div class="flex space-x-1 mt-2">
+                        <span class="px-2 py-0.5 rounded-md bg-pink-500 text-white font-bold text-[9px]">⭐ 4.9+</span>
+                        <span class="px-2 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-[9px]">Mall</span>
+                        <span class="px-2 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-[9px]">Freeship</span>
+                      </div>
+                    </div>
+                    <button onclick="activateSlot2()" class="w-full py-2.5 rounded-[20px] apple-glow-btn text-white font-bold text-xs active:scale-95 shadow-md cursor-pointer">
+                      🔔 Kích Hoạt Theo Dõi Món 2
+                    </button>
+                  </div>
+
+                  <!-- Thẻ khi Ô 2 đã khóa (CÓ NÚT XÓA / ĐỔI MÓN) -->
+                  <div id="active-card-slot-2" class="hidden apple-glass rounded-[18px] p-2.5 flex items-center justify-between space-x-2">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                      <div class="w-9 h-9 rounded-xl bg-pink-500/20 flex items-center justify-center text-base shrink-0">👗</div>
+                      <div class="min-w-0">
+                        <h5 class="text-xs font-bold truncate">Váy Babydoll Ulzzang</h5>
+                        <p class="text-[9px] opacity-70 truncate">250k ➔ 185k | <b id="active-card-slot-2-variant" class="text-pink-400">👗 Đen (Size S)</b></p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-1 shrink-0">
+                      <span class="text-[8px] font-bold bg-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded-md">Đang quét</span>
+                      <button onclick="removeSlot2Item()" title="Xóa món này để dán món khác" class="px-2 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[9px] font-bold active:scale-95 transition cursor-pointer flex items-center space-x-0.5">
+                        <span>🗑️ Đổi món</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Ô THỨ 1 (BỊ ĐẨY XUỐNG KHI Ô 2 XUẤT HIỆN) -->
+                <div id="slot-box-1" class="p-3 rounded-[24px] border border-purple-400/30 apple-glass shadow-sm transition-all duration-300 relative">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[9px] font-extrabold bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                      📍 Ô DÁN LINK #1 (MÓN 1/2)
+                    </span>
+                    <div class="flex items-center space-x-1 text-[8px] font-bold">
+                      <span class="text-orange-500">Shopee</span> •
+                      <span class="text-neutral-800 dark:text-neutral-200">TikTok</span> •
+                      <span class="text-blue-500">Lazada</span>
+                    </div>
+                  </div>
+
+                  <!-- Input Ô 1 -->
+                  <div id="input-container-slot-1" class="relative">
+                    <input 
+                      type="text" 
+                      id="bump-input"
+                      oninput="checkBumpInput()"
+                      placeholder="Dán link Shopee, TikTok Shop, Lazada (Món 1)"
+                      class="w-full apple-input placeholder-slate-400 font-medium text-xs rounded-[20px] px-3.5 py-3 pr-20 shadow-inner focus:outline-none transition"
+                    />
+                    <button 
+                      onclick="samplePaste()"
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-xl apple-glow-btn text-white text-[9px] font-bold shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      📋 Dán link
+                    </button>
+                  </div>
+
+                  <!-- Dynamic Reveal Ô 1 (CÓ CHỌN MÀU ĐEN/TRẮNG/SIZE) -->
+                  <div id="bump-expanded" class="hidden mt-2 space-y-2 transition-all duration-300">
+                    <div class="bg-black/5 dark:bg-white/5 rounded-[18px] p-2.5 text-[10px]">
+                      <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold opacity-80">Giá mong muốn món 1:</span>
+                        <span class="text-purple-400 font-bold">Giảm -22%</span>
+                      </div>
+                      <input type="text" value="320.000" class="w-full bg-black/10 dark:bg-white/10 text-current text-xs font-bold rounded-lg px-2 py-1.5 border border-current/20 mb-1.5"/>
+                      
+                      <!-- BỘ LỌC PHÂN LOẠI MÀU SẮC MÓN 1 -->
+                      <div class="pt-1.5 border-t border-current/10">
+                        <div class="flex justify-between items-center mb-1">
+                          <span class="font-bold opacity-80 text-[10px]">Phân loại cần săn:</span>
+                          <span id="slot1-selected-variant" class="text-purple-400 font-bold text-[9px]">⚫ Màu Đen (Size L)</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                          <button type="button" onclick="selectVariant(1, '⚫ Màu Đen (Size L)', this)" class="variant-btn-1 px-2 py-0.5 rounded-lg bg-purple-600 text-white font-bold text-[9px] shadow-sm cursor-pointer">⚫ Đen (Size L)</button>
+                          <button type="button" onclick="selectVariant(1, '⚪ Màu Trắng (Size M)', this)" class="variant-btn-1 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer">⚪ Trắng (Size M)</button>
+                          <button type="button" onclick="selectVariant(1, '🔘 Xám Khói', this)" class="variant-btn-1 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer">🔘 Xám Khói</button>
+                          <button type="button" onclick="selectVariant(1, '⚡ Bất kỳ màu nào', this)" class="variant-btn-1 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer">Tất cả màu</button>
+                        </div>
+                      </div>
+
+                      <div class="flex space-x-1 mt-2">
+                        <span class="px-2 py-0.5 rounded-md bg-purple-600 text-white font-bold text-[9px]">⭐ 4.8+</span>
+                        <span class="px-2 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-[9px]">Mall</span>
+                        <span class="px-2 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-[9px]">Freeship</span>
+                      </div>
+                    </div>
+                    <button onclick="triggerBumpReassurance()" class="w-full py-2.5 rounded-[20px] apple-glow-btn text-white font-bold text-xs flex items-center justify-center space-x-1.5 active:scale-95 shadow-md cursor-pointer">
+                      <span>🔔 Bật Radar Theo Dõi Món 1</span>
+                    </button>
+                  </div>
+
+                  <!-- Thẻ khi Ô 1 đã khóa (CÓ NÚT XÓA / ĐỔI MÓN) -->
+                  <div id="active-card-slot-1" class="hidden apple-glass rounded-[18px] p-2.5 flex items-center justify-between space-x-2">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                      <div class="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center text-base shrink-0">👕</div>
+                      <div class="min-w-0">
+                        <h5 class="text-xs font-bold truncate">Áo Thun Unisex Local Brand</h5>
+                        <p class="text-[9px] opacity-70 truncate">450k ➔ 320k | <b id="active-card-slot-1-variant" class="text-purple-400">⚫ Đen (Size L)</b></p>
+                      </div>
+                    </div>
+                    <div class="flex items-center space-x-1 shrink-0">
+                      <span class="text-[8px] font-bold bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-md">Đang canh</span>
+                      <button onclick="removeSlot1Item()" title="Xóa món này để dán món khác" class="px-2 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[9px] font-bold active:scale-95 transition cursor-pointer flex items-center space-x-0.5">
+                        <span>🗑️ Đổi món</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- POPUP CELEBRATION KHI MỞ KHÓA Ô 2 -->
+            <div id="unlock-slot2-modal" class="hidden absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div class="w-full apple-sheet rounded-[32px] p-5 shadow-2xl text-center relative border border-pink-400/40">
+                <div class="text-3xl mb-2">🎉🫧</div>
+                <h3 class="text-sm font-black text-pink-500 mb-1">MỞ KHÓA THÀNH CÔNG Ô #2!</h3>
+                <p class="text-[11px] leading-relaxed opacity-85 mb-3">
+                  Bạn đã chạm nổ đủ <b>10 bong bóng</b> quanh Radar! Ô dán link thứ 2 đã bung ra và <b>đẩy ô #1 xuống</b>.
+                </p>
+                <div class="p-2.5 rounded-xl bg-pink-500/15 border border-pink-500/20 text-[10px] font-bold text-pink-400 mb-3">
+                  ⚠️ Quy tắc cứng: Toàn app tối đa đúng 2 món duy nhất!
+                </div>
+                <button onclick="dismissUnlockModal()" class="w-full py-3 rounded-2xl apple-glow-btn text-white font-bold text-xs active:scale-95 shadow-lg cursor-pointer">
+                  Đến Thử Ô #2 Ngay ✨
+                </button>
+              </div>
+            </div>
+
+            <!-- POPUP BUMP REASSURANCE -->
+            <div id="cute-bump-sheet" class="hidden absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-3">
+              <div class="w-full apple-sheet rounded-[36px] p-5 shadow-2xl text-center relative border border-white/20">
+                <div class="w-10 h-1 bg-slate-400/40 rounded-full mx-auto mb-3"></div>
+                <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-500/20 to-pink-500/20 border-4 border-purple-400/30 mx-auto flex items-center justify-center text-2xl mb-2 shadow-inner">
+                  🔔
+                </div>
+                <h3 class="text-sm font-black mb-1">Đã Khóa Mục Tiêu Theo Dõi!</h3>
+                <div class="p-3 bg-purple-500/15 rounded-[22px] border border-purple-400/30 mb-2">
+                  <p class="text-xs font-bold text-purple-400 leading-relaxed">
+                    “Chúng tôi đang theo dõi đúng phân loại màu/size, hãy yên tâm nhé.”
+                  </p>
+                </div>
+                <p class="text-[10px] opacity-75 px-2 leading-normal">
+                  Nguyên tắc: Tối đa 2 món để đảm bảo tốc độ cào giá siêu tốc. Khi mua xong bạn có thể bấm "🗑️ Đổi món" bất cứ lúc nào!
+                </p>
+                <button onclick="dismissBumpSheet()" class="mt-4 w-full py-3.5 rounded-[28px] apple-glow-btn text-white font-bold text-xs flex items-center justify-center space-x-2 active:scale-95 transition cursor-pointer">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  <span>Tôi đã yên tâm rồi, cảm ơn!</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Home Indicator -->
+          <div class="pb-2 pt-1 flex justify-center z-30 bg-transparent shrink-0">
+            <div class="w-32 h-1 bg-current opacity-40 rounded-full"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Thanh Điều Khiển Nhanh & Bản So Sánh Figma (lg:col-span-6) -->
+    <div class="hidden lg:block lg:col-span-6 space-y-4">
+      <div class="bg-neutral-900/95 border border-neutral-800 rounded-[32px] p-6 shadow-2xl backdrop-blur-xl">
+        
+        <div class="flex items-center space-x-2 text-xs font-bold text-pink-400 uppercase tracking-wider mb-2">
+          <span>⚡ CẬP NHẬT: PHÂN LOẠI MÀU & ĐỔI MÓN LINH HOẠT</span>
+        </div>
+
+        <h2 class="text-2xl font-black text-white leading-snug">
+          "Đúng Màu Đen Cần Săn & Nút Xóa/Đổi Món Khi Đã Mua Xong!"
+        </h2>
+        <p class="text-xs text-neutral-400 mt-1">
+          Hệ thống đã hỗ trợ chọn đúng phân loại (Màu đen, Size L...). Sau khi chốt đơn xong, người dùng có nút <b>🗑️ Đổi món</b> để xóa món cũ và dán món mới mà không phá vỡ quy tắc tối đa 2 món!
+        </p>
+
+        <!-- THANH CÔNG CỤ TEST NHANH -->
+        <div class="mt-4 p-3.5 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white">🕹️ Bấm Thử Nhanh Các Luồng:</span>
+            <button onclick="resetDemo()" class="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold border border-red-500/30 hover:bg-red-500/30 active:scale-95 transition cursor-pointer">
+              🔄 Reset Prototype
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="quickPop10Bubbles()" class="px-3 py-2 rounded-xl apple-glow-btn text-white font-bold text-[11px] shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1">
+              <span>🫧 Nổ 10 Bóng (Mở Ô 2)</span>
+            </button>
+            <button onclick="quickPasteSlot1()" class="px-3 py-2 rounded-xl bg-purple-600/30 border border-purple-500/50 text-purple-200 font-bold text-[11px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1">
+              <span>👕 Dán Áo Màu Đen</span>
+            </button>
+            <button onclick="quickPasteSlot2()" class="px-3 py-2 rounded-xl bg-pink-600/30 border border-pink-500/50 text-pink-200 font-bold text-[11px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1">
+              <span>👗 Dán Váy Món 2</span>
+            </button>
+            <button onclick="toggleTheme()" class="px-3 py-2 rounded-xl bg-neutral-700/80 border border-neutral-600 text-neutral-200 font-bold text-[11px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1">
+              <span>🌓 Đổi Light / Dark</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bảng soi lỗi chi tiết 4 màn hình của Kiệt -->
+        <div class="space-y-2 mt-4 text-[11px] text-neutral-300">
+          <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <b class="text-emerald-400">✅ 2 TÍNH NĂNG VỪA ĐƯỢC CHUẨN HÓA:</b>
+            <ul class="list-disc pl-4 mt-1 space-y-1 text-neutral-300 text-[10px]">
+              <li><b>Chọn đúng phân loại (Variant SKU):</b> Khi dán link áo, có sẵn chip chọn <b>⚫ Đen (Size L)</b>, ⚪ Trắng... Khi sập giá, link mở app sẽ tick sẵn đúng màu đen vào giỏ!</li>
+              <li><b>Nút 🗑️ Đổi món linh hoạt:</b> Mua xong hoặc muốn đổi món khác? Bấm nút <b>🗑️ Đổi món</b> trên thẻ ➔ Ô dán link rỗng hiện ra lại, tha hồ dán món mới mà vẫn bảo đảm tối đa 2 món!</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between text-[11px]">
+          <span class="text-neutral-400">File đã cập nhật chọn màu đen & nút xóa:</span>
+          <span class="font-bold text-pink-400">APP_PROTOTYPE_TRO_LY_SAN_DEAL.html</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    let isDarkMode = false;
+    let bubblesPopped = 0;
+    const targetBubbles = 10;
+    let slot2Unlocked = false;
+    let slot1Active = false;
+    let slot2Active = false;
+    let slot1Variant = "⚫ Màu Đen (Size L)";
+    let slot2Variant = "👗 Đầm Đen (Size S)";
+
+    // Âm thanh Pop bong bóng qua Web Audio API
+    function playPopSound() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450 + Math.random() * 250, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(850 + Math.random() * 250, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch (e) {}
+    }
+
+    // Tự động sinh bong bóng trôi nổi CHỈ TRONG KHU VỰC RADAR HEADER
+    const bubbleIcons = ['🫧', '🏷️', '⚡', '🔥', '👟', '🎧', '✨', '👗', '🎁'];
+    function spawnBubble() {
+      const mainView = document.getElementById('view-main');
+      if (mainView && mainView.classList.contains('hidden')) return;
+
+      const field = document.getElementById('bubbles-field');
+      if (!field) return;
+
+      if (field.children.length >= 5) return;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble-item flex items-center justify-center text-xs';
+      
+      const size = Math.floor(Math.random() * 10) + 30; // 30px - 40px
+      bubble.style.width = size + 'px';
+      bubble.style.height = size + 'px';
+
+      const fieldWidth = field.offsetWidth || 340;
+      const left = Math.floor(Math.random() * (fieldWidth - size - 24)) + 12;
+      bubble.style.left = left + 'px';
+      bubble.style.bottom = '-10px';
+      bubble.style.background = 'rgba(255, 255, 255, 0.45)';
+      bubble.style.border = '1.5px solid rgba(255, 255, 255, 0.8)';
+      bubble.style.boxShadow = '0 4px 12px rgba(236,72,153,0.25), inset 0 1px 3px rgba(255,255,255,0.8)';
+      
+      const duration = (Math.random() * 2 + 4.5);
+      bubble.style.animation = `radar-bubble-drift ${duration}s ease-in-out forwards`;
+      
+      const icon = bubbleIcons[Math.floor(Math.random() * bubbleIcons.length)];
+      bubble.innerText = icon;
+
+      bubble.onclick = function(e) {
+        e.stopPropagation();
+        popBubble(bubble);
+      };
+
+      field.appendChild(bubble);
+
+      setTimeout(() => {
+        if (bubble.parentElement) bubble.remove();
+      }, duration * 1000);
+    }
+
+    setInterval(spawnBubble, 1200);
+
+    function popBubble(bubble) {
+      playPopSound();
+      bubble.classList.add('bubble-popped');
+      setTimeout(() => { bubble.remove(); }, 300);
+
+      if (bubblesPopped < targetBubbles) {
+        bubblesPopped++;
+        renderBubbleProgress();
+      }
+    }
+
+    function quickPop10Bubbles() {
+      goToMainApp();
+      playPopSound();
+      bubblesPopped = targetBubbles;
+      renderBubbleProgress();
+    }
+
+    function renderBubbleProgress() {
+      const pct = Math.min((bubblesPopped / targetBubbles) * 100, 100);
+      const bar = document.getElementById('bubble-bar');
+      const countText = document.getElementById('bubble-count-text');
+      if (bar) bar.style.width = pct + '%';
+      if (countText) countText.innerText = bubblesPopped + ' / ' + targetBubbles + ' 🫧';
+
+      if (bubblesPopped >= targetBubbles && !slot2Unlocked) {
+        slot2Unlocked = true;
+        document.getElementById('slot-indicator').innerText = '2 / 2 Món';
+        document.getElementById('slot-box-2').classList.remove('hidden');
+        document.getElementById('bubble-game-banner').classList.add('hidden');
+        showUnlockSlot2Modal();
+      }
+    }
+
+    function showUnlockSlot2Modal() {
+      const modal = document.getElementById('unlock-slot2-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function dismissUnlockModal() {
+      const modal = document.getElementById('unlock-slot2-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function toggleTheme() {
+      isDarkMode = !isDarkMode;
+      const screen = document.getElementById('phone-screen');
+      const switchIcon = document.getElementById('theme-switch-icon');
+      const switchText = document.getElementById('theme-switch-text');
+      const switchPill = document.getElementById('ios-switch-pill');
+      const switchThumb = document.getElementById('ios-switch-thumb');
+      const orb1 = document.getElementById('orb-1');
+      const orb2 = document.getElementById('orb-2');
+      const orb3 = document.getElementById('orb-3');
+      const orb4 = document.getElementById('orb-4');
+
+      if (isDarkMode) {
+        screen.classList.remove('light-mode');
+        screen.classList.add('dark-mode');
+        switchIcon.innerText = '🌙';
+        switchText.innerText = 'Dark';
+        switchPill.className = "w-6 h-3.5 bg-purple-600 rounded-full relative p-0.5 transition-colors";
+        switchThumb.className = "w-2.5 h-2.5 bg-white rounded-full transition-transform translate-x-2.5 shadow-sm";
+
+        orb1.className = "orb-1 absolute -top-16 -left-16 w-64 h-64 rounded-full bg-gradient-to-tr from-pink-600 to-rose-500 opacity-65 mix-blend-screen";
+        orb2.className = "orb-2 absolute top-1/4 -right-20 w-72 h-72 rounded-full bg-gradient-to-bl from-purple-600 via-indigo-600 to-blue-600 opacity-70 mix-blend-screen";
+        orb3.className = "orb-3 absolute -bottom-16 left-8 w-64 h-64 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 opacity-60 mix-blend-screen";
+        orb4.className = "orb-4 absolute top-1/2 left-1/4 w-56 h-56 rounded-full bg-gradient-to-r from-cyan-500 to-sky-600 opacity-60 mix-blend-screen";
+      } else {
+        screen.classList.remove('dark-mode');
+        screen.classList.add('light-mode');
+        switchIcon.innerText = '☀️';
+        switchText.innerText = 'Light';
+        switchPill.className = "w-6 h-3.5 bg-slate-300 rounded-full relative p-0.5 transition-colors";
+        switchThumb.className = "w-2.5 h-2.5 bg-white rounded-full transition-transform translate-x-0 shadow-sm";
+
+        orb1.className = "orb-1 absolute -top-16 -left-16 w-64 h-64 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 opacity-70 mix-blend-multiply";
+        orb2.className = "orb-2 absolute top-1/4 -right-20 w-72 h-72 rounded-full bg-gradient-to-bl from-purple-600 via-indigo-500 to-blue-500 opacity-70 mix-blend-multiply";
+        orb3.className = "orb-3 absolute -bottom-16 left-8 w-64 h-64 rounded-full bg-gradient-to-tr from-amber-400 via-orange-400 to-rose-400 opacity-65 mix-blend-multiply";
+        orb4.className = "orb-4 absolute top-1/2 left-1/4 w-56 h-56 rounded-full bg-gradient-to-r from-cyan-400 to-sky-500 opacity-60 mix-blend-multiply";
+      }
+    }
+
+    function goToMainApp() {
+      const onboarding = document.getElementById('view-onboarding');
+      const main = document.getElementById('view-main');
+      if (onboarding && main) {
+        onboarding.classList.add('hidden');
+        main.classList.remove('hidden');
+      }
+    }
+
+    function goToOnboarding() {
+      const onboarding = document.getElementById('view-onboarding');
+      const main = document.getElementById('view-main');
+      if (onboarding && main) {
+        main.classList.add('hidden');
+        onboarding.classList.remove('hidden');
+      }
+    }
+
+    function checkBumpInput() {
+      const val = document.getElementById('bump-input').value.trim();
+      const exp = document.getElementById('bump-expanded');
+      if (val.length > 5) {
+        exp.classList.remove('hidden');
+      } else {
+        exp.classList.add('hidden');
+      }
+    }
+
+    function samplePaste() {
+      goToMainApp();
+      const input = document.getElementById('bump-input');
+      input.value = "https://shopee.vn/product/ao-thun-unisex-local-brand";
+      checkBumpInput();
+    }
+
+    function selectVariant(slot, variantName, btn) {
+      if (slot === 1) {
+        slot1Variant = variantName;
+        document.getElementById('slot1-selected-variant').innerText = variantName;
+        document.querySelectorAll('.variant-btn-1').forEach(b => {
+          b.className = "variant-btn-1 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer";
+        });
+        btn.className = "variant-btn-1 px-2 py-0.5 rounded-lg bg-purple-600 text-white font-bold text-[9px] shadow-sm cursor-pointer";
+      } else {
+        slot2Variant = variantName;
+        document.getElementById('slot2-selected-variant').innerText = variantName;
+        document.querySelectorAll('.variant-btn-2').forEach(b => {
+          b.className = "variant-btn-2 px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 text-current text-[9px] cursor-pointer";
+        });
+        btn.className = "variant-btn-2 px-2 py-0.5 rounded-lg bg-pink-500 text-white font-bold text-[9px] shadow-sm cursor-pointer";
+      }
+    }
+
+    function triggerBumpReassurance() {
+      document.getElementById('cute-bump-sheet').classList.remove('hidden');
+    }
+
+    function dismissBumpSheet() {
+      document.getElementById('cute-bump-sheet').classList.add('hidden');
+      slot1Active = true;
+      document.getElementById('input-container-slot-1').classList.add('hidden');
+      document.getElementById('bump-expanded').classList.add('hidden');
+      document.getElementById('active-card-slot-1').classList.remove('hidden');
+      document.getElementById('active-card-slot-1-variant').innerText = slot1Variant;
+      updateCounters();
+      showToast("🔔 Đã bật Radar Món #1!", `Đang theo dõi chuẩn phân loại: ${slot1Variant}`);
+    }
+
+    function checkSlot2Input() {
+      const val = document.getElementById('input-slot-2').value.trim();
+      const exp = document.getElementById('expanded-slot-2');
+      if (val.length > 5) {
+        exp.classList.remove('hidden');
+      } else {
+        exp.classList.add('hidden');
+      }
+    }
+
+    function pasteSlot2Sample() {
+      goToMainApp();
+      if (!slot2Unlocked) {
+        quickPop10Bubbles();
+      }
+      const input = document.getElementById('input-slot-2');
+      input.value = "https://tiktok.com/@shop/vay-babydoll-ulzzang";
+      checkSlot2Input();
+    }
+
+    function activateSlot2() {
+      slot2Active = true;
+      document.getElementById('input-container-slot-2').classList.add('hidden');
+      document.getElementById('expanded-slot-2').classList.add('hidden');
+      document.getElementById('active-card-slot-2').classList.remove('hidden');
+      document.getElementById('active-card-slot-2-variant').innerText = slot2Variant;
+      updateCounters();
+      showToast("🎉 Đã bật theo dõi Món #2!", `Đang theo dõi chuẩn: ${slot2Variant}. Tối đa 2 món!`);
+    }
+
+    // NÚT XÓA / ĐỔI MÓN CHO Ô 1
+    function removeSlot1Item() {
+      if (confirm("Bạn có muốn dừng theo dõi Món #1 để đổi sang món khác không?")) {
+        slot1Active = false;
+        document.getElementById('bump-input').value = '';
+        document.getElementById('active-card-slot-1').classList.add('hidden');
+        document.getElementById('bump-expanded').classList.add('hidden');
+        document.getElementById('input-container-slot-1').classList.remove('hidden');
+        updateCounters();
+        showToast("🗑️ Đã xóa Món #1", "Ô tìm kiếm #1 đã trống! Bạn có thể dán link mới vào.", "🗑️");
+      }
+    }
+
+    // NÚT XÓA / ĐỔI MÓN CHO Ô 2
+    function removeSlot2Item() {
+      if (confirm("Bạn có muốn dừng theo dõi Món #2 để đổi sang món khác không?")) {
+        slot2Active = false;
+        document.getElementById('input-slot-2').value = '';
+        document.getElementById('active-card-slot-2').classList.add('hidden');
+        document.getElementById('expanded-slot-2').classList.add('hidden');
+        document.getElementById('input-container-slot-2').classList.remove('hidden');
+        updateCounters();
+        showToast("🗑️ Đã xóa Món #2", "Ô tìm kiếm #2 đã trống! Bạn có thể dán link mới vào.", "🗑️");
+      }
+    }
+
+    function updateCounters() {
+      let count = (slot1Active ? 1 : 0) + (slot2Active ? 1 : 0);
+      document.getElementById('active-item-badge').innerText = count + '/2 món';
+    }
+
+    function showToast(title, message, icon = '✨') {
+      const toast = document.getElementById('toast-notification');
+      if (!toast) return;
+      document.getElementById('toast-icon').innerText = icon;
+      document.getElementById('toast-title').innerText = title;
+      document.getElementById('toast-message').innerText = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+
+    function quickPasteSlot1() {
+      samplePaste();
+      triggerBumpReassurance();
+    }
+
+    function quickPasteSlot2() {
+      pasteSlot2Sample();
+    }
+
+    function resetDemo() {
+      bubblesPopped = 0;
+      slot2Unlocked = false;
+      slot1Active = false;
+      slot2Active = false;
+
+      document.getElementById('bump-input').value = '';
+      document.getElementById('input-slot-2').value = '';
+
+      document.getElementById('input-container-slot-1').classList.remove('hidden');
+      document.getElementById('bump-expanded').classList.add('hidden');
+      document.getElementById('active-card-slot-1').classList.add('hidden');
+
+      document.getElementById('slot-box-2').classList.add('hidden');
+      document.getElementById('input-container-slot-2').classList.remove('hidden');
+      document.getElementById('expanded-slot-2').classList.add('hidden');
+      document.getElementById('active-card-slot-2').classList.add('hidden');
+
+      document.getElementById('bubble-game-banner').classList.remove('hidden');
+      document.getElementById('bubble-bar').style.width = '0%';
+      document.getElementById('bubble-count-text').innerText = '0 / 10 🫧';
+
+      document.getElementById('slot-indicator').innerText = '1 / 2 Món';
+      document.getElementById('active-item-badge').innerText = '0/2 món';
+
+      document.getElementById('cute-bump-sheet').classList.add('hidden');
+      document.getElementById('unlock-slot2-modal').classList.add('hidden');
+
+      showToast("🔄 Đã Reset Prototype!", "Bạn có thể trải nghiệm lại từ đầu.", "🔄");
+    }
+  </script>
+</body>
+</html>
