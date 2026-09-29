@@ -3,6 +3,7 @@ const prisma = require("../config/prisma");
 const shopeePriceService = require("./shopeePriceService");
 const tiktokPriceService = require("./tiktokPriceService");
 const lazadaPriceService = require("./lazadaPriceService");
+const { sendPushNotification } = require("./notificationService");
 
 /**
  * Bắt đầu các cron jobs để lấy giá tự động.
@@ -14,6 +15,7 @@ function startCronJobs() {
     try {
       const trackingItems = await prisma.trackingItem.findMany({
         where: { status: "TRACKING" },
+        include: { user: true },
       });
 
       for (const item of trackingItems) {
@@ -59,6 +61,21 @@ function startCronJobs() {
                 item.productName || item.id
               } đã đạt giá mục tiêu (${currentPrice} <= ${item.targetPrice.toNumber()})!`
             );
+
+            // Gửi Push Notification qua Firebase
+            if (item.user && item.user.deviceToken) {
+              try {
+                const title = "DealPing - SẬP GIÁ! 🎉";
+                const body = `Sản phẩm "${item.productName || 'Bạn đang theo dõi'}" đã giảm xuống còn ${currentPrice}đ. Mua ngay kẻo lỡ!`;
+                await sendPushNotification(item.user.deviceToken, title, body, {
+                  trackingItemId: item.id,
+                  productUrl: item.productUrl || ""
+                });
+                console.log(`[CRON] Đã gửi Push Notification đến user ${item.user.id}`);
+              } catch (pushErr) {
+                console.error(`[CRON] Lỗi gửi Push Notification:`, pushErr.message);
+              }
+            }
           } else {
             console.log(
               `[CRON] Sản phẩm ${item.productName || item.id} giá hiện tại: ${currentPrice}, chưa đạt mục tiêu (${item.targetPrice.toNumber()}).`
