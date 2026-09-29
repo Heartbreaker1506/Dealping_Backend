@@ -5,6 +5,7 @@ const { errorHandler, notFoundHandler } = require("./middlewares/errorHandler");
 
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
+const firebaseAdmin = require("./config/firebase");
 
 const app = express();
 
