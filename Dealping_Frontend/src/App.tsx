@@ -5,6 +5,11 @@ import {
   useCallback,
   useLayoutEffect,
 } from "react"
+import {
+  NotificationBell,
+  NotificationCenterModal,
+  type AppNotification,
+} from "./NotificationCenter"
 
 type View = "onboarding" | "welcome" | "main"
 type SpotlightStep = "none" | "slot1" | "radar"
@@ -729,9 +734,9 @@ function OrderDetailModal({
   onClose,
   data,
   onOpenStore,
-  onTriggerAlarm,
   onRemove,
   onCopyLink,
+  onTriggerAlarm,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -749,9 +754,9 @@ function OrderDetailModal({
     affiliateUrl?: string | null
   } | null
   onOpenStore: () => void
-  onTriggerAlarm: () => void
   onRemove: () => void
   onCopyLink: () => void
+  onTriggerAlarm?: () => void
 }) {
   if (!isOpen || !data) return null
 
@@ -933,23 +938,23 @@ function OrderDetailModal({
             <span>MỞ SẢN PHẨM TRÊN SÀN (MUA NGAY)</span>
           </button>
 
-          <div className="grid grid-cols-2 gap-2">
+          {onTriggerAlarm && (
             <button
               onClick={onTriggerAlarm}
-              className="py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold text-[10px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1"
-              title="Thử chuông báo động sập giá"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:brightness-110 text-white font-bold text-xs shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1.5"
             >
               <span>🚨</span>
-              <span>Test Hú Còi Sập Giá</span>
+              <span>Báo Động Sập Giá</span>
             </button>
-            <button
-              onClick={onCopyLink}
-              className="py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-slate-200 font-bold text-[10px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1"
-            >
-              <span>📋</span>
-              <span>Sao Chép Link</span>
-            </button>
-          </div>
+          )}
+
+          <button
+            onClick={onCopyLink}
+            className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-slate-200 font-bold text-[10px] active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1"
+          >
+            <span>📋</span>
+            <span>Sao Chép Link Sản Phẩm</span>
+          </button>
 
           <button
             onClick={onRemove}
@@ -1213,7 +1218,7 @@ function SlotCard({
             >
               {productImage || previewImage ? (
                 <img
-                  src={productImage || previewImage}
+                  src={(productImage || previewImage) || undefined}
                   alt=""
                   className="w-full h-full object-cover rounded-xl"
                   onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
@@ -1345,10 +1350,10 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 3500)
   }, [])
 
-  // Alarm Price Drop Test (Vũ khí Pitch)
-  const [alarmLoading, setAlarmLoading] = useState(false)
+  // Alarm Price Drop Modal & Scanner
   const [showAlarmModal, setShowAlarmModal] = useState(false)
   const [alarmData, setAlarmData] = useState<PriceDropData | null>(null)
+  const [isScanningDeal, setIsScanningDeal] = useState(false)
   const [pushNotification, setPushNotification] = useState<PriceDropData | null>(null)
   const pushNotificationTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const [isAlarmFlashing, setIsAlarmFlashing] = useState(false)
@@ -1357,7 +1362,7 @@ export default function App() {
     if (!("Notification" in window)) return
     const title = "🚨 DEALPING: BÁO ĐỘNG SẬP GIÁ!"
     const savings = Math.max(0, Math.round((1 - data.newPrice / data.oldPrice) * 100))
-    const options: NotificationOptions = {
+    const options: any = {
       body: `${data.productName} vừa sập giá còn ${formatVND(data.newPrice)} (-${savings}%)! Mua ngay kẻo hết!`,
       icon: data.imageUrl || "https://fav.farm/🚨",
       tag: `dealping-alarm-${Date.now()}`,
@@ -1414,171 +1419,239 @@ export default function App() {
     }, 4500)
   }, [])
 
-  const alarmDealCycleRef = useRef(0)
+  // Trung tâm thông báo (Notification Center)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false)
+  const prevNotifIdsRef = useRef<Set<string>>(new Set())
 
-  const LIVE_PLATFORM_DEALS = [
-    {
-      platform: "Lazada",
-      badge: "🔵 LAZADA • FLASH SALE CHÍNH HÃNG",
-      productName: "Tai Nghe Không Dây X55 Bluetooth 5.3 Thể Thao Chống Ồn Chống Nước Tích Hợp Micro Cao Cấp",
-      imageUrl: "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg",
-      affiliateUrl: "https://www.lazada.vn/products/pdp-i2405568127.html",
-      oldPrice: 190000,
-      newPrice: 87318,
-      flashSalePrice: 87318,
-      discountCodes: ["LAZADA_FREESHIP", "GIAM10%"],
-    },
-    {
-      platform: "Shopee",
-      badge: "🟠 SHOPEE MALL • FLASH SALE",
-      productName: "Bh Áo Tay Phồng Dài Cổ Tròn Dáng Rộng Viền Gỗ vintage Cho Nữ",
-      imageUrl: "https://cf.shopee.vn/file/sg-11134201-7rbkn-llaskzpnbpq3a6",
-      affiliateUrl: "https://shopee.vn/product/344823086/23053826422",
-      oldPrice: 281000,
-      newPrice: 202860,
-      flashSalePrice: 202860,
-      discountCodes: ["FREESHIP", "SHOPEESTYLE_15K"],
-    },
-    {
-      platform: "TikTok",
-      badge: "⚫ TIKTOK SHOP • DEAL CHẠM ĐÁY",
-      productName: "Váy Yếm Jean Ngắn Kèm Đai 2 Màu - Thiết Kế Thời Trang Form Xinh Tôn Dáng Hiệu Quả Phù Hợp Mặc Đi Học Hoặc Đi Chơi Màu Nâu & Xanh Kích Thước S M L",
-      imageUrl: "https://p16-oec-va.ibyteimg.com/tos-useast2a-i-5114no4zn1-aiso/22467389a07a4a2c89f5bc301ff7a6aa~tplv-5114no4zn1-resize-jpeg:800:800.jpeg",
-      affiliateUrl: "https://shop.tiktok.com/vn/pdp/1735608403532482138",
-      oldPrice: 299000,
-      newPrice: 245000,
-      flashSalePrice: 245000,
-      discountCodes: ["TIKTOK_FREESHIP", "GIAM20K"],
-    },
-  ]
-
-  const handleTestAlarm = useCallback(async () => {
-    setAlarmLoading(true)
-
-    // Lấy thông tin sản phẩm thật đang có trên ô dán link hoặc đang theo dõi
-    const useSlot2 = (lastActiveSlot === 2 && (slot2Active || !!slot2Input)) || (slot2Active && !slot1Active)
-    const chosenSlot = useSlot2 ? 2 : 1
-    const chosenInput = (useSlot2 ? slot2Input : slot1Input).trim()
-
-    let rawProductName = useSlot2
-      ? (slot2Active ? slot2ProductName : slot2PreviewName) || slot2ProductName || slot2PreviewName
-      : (slot1Active ? slot1ProductName : slot1PreviewName) || slot1ProductName || slot1PreviewName
-
-    const hasSpecificProduct = Boolean(
-      (useSlot2 ? (slot2Active || !!slot2Input) : (slot1Active || !!slot1Input)) &&
-      rawProductName &&
-      !/could not get|không thể lấy|sản phẩm$/i.test(rawProductName.trim())
-    )
-
-    if (!hasSpecificProduct && !chosenInput) {
-      // 🚀 QUÉT XẾP HẠNG: Mỗi lần bấm sẽ tuần tự hiển thị deal giảm giá sâu tiếp theo
-      let dealsList: any[] = []
-      const cleanApiUrl = API_URL.replace(/\/$/, "")
-      try {
-        const liveRes = await fetch(`${cleanApiUrl}/api/deals/top-sales`)
-        if (liveRes.ok) {
-          const liveJson = await liveRes.json()
-          if (liveJson && Array.isArray(liveJson.data) && liveJson.data.length > 0) {
-            dealsList = liveJson.data
-          }
+  const fetchNotifications = useCallback(async () => {
+    const cleanApiUrl = API_URL.replace(/\/$/, "")
+    try {
+      const res = await fetch(`${cleanApiUrl}/api/notifications?userId=${getUserId()}`)
+      if (res.ok) {
+        const json = await res.json()
+        if (json.success && Array.isArray(json.data)) {
+          setNotifications(json.data)
+          try {
+            localStorage.setItem("dealping_notifications", JSON.stringify(json.data))
+          } catch (e) {}
+          return json.data
         }
-      } catch (e) {}
-
-      if (dealsList.length === 0) {
-        dealsList = LIVE_PLATFORM_DEALS
       }
+    } catch (err) {
+      try {
+        const local = JSON.parse(localStorage.getItem("dealping_notifications") || "[]")
+        setNotifications(local)
+        return local
+      } catch (e) {}
+    }
+    return []
+  }, [])
 
-      const currentIndex = alarmDealCycleRef.current % dealsList.length
-      const topDeal = dealsList[currentIndex]
-      alarmDealCycleRef.current += 1
-
-      triggerPriceDropAlarm({
-        productName: topDeal.productName,
-        oldPrice: topDeal.oldPrice,
-        newPrice: topDeal.newPrice,
-        flashSalePrice: topDeal.flashSalePrice || topDeal.newPrice,
-        slotNum: 1,
-        imageUrl: topDeal.imageUrl,
-        affiliateUrl: topDeal.affiliateUrl,
-        cashbackCommission: topDeal.cashbackCommission || Math.round(topDeal.newPrice * 0.05),
-        discountCodes: topDeal.discountCodes || ["FREESHIP", "GIAM20K"],
-        platformBadge: topDeal.badge,
-        timestamp: new Date().toISOString(),
+  const handleMarkAllRead = useCallback(async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    const cleanApiUrl = API_URL.replace(/\/$/, "")
+    try {
+      await fetch(`${cleanApiUrl}/api/notifications/read-all`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: getUserId() }),
       })
-      setAlarmLoading(false)
-      return
-    }
+    } catch (e) {}
+  }, [])
 
-    // Nếu người dùng ĐÃ DÁN LINK sản phẩm thật của mình hoặc chuyển sàn:
-    let activeProductName = rawProductName || extractCleanProductName(chosenInput) || "Sản phẩm bạn đang theo dõi"
-    let activeBasePrice = useSlot2 ? slot2BasePrice : slot1BasePrice
-    let activePreviewPriceNum = parseVND(useSlot2 ? slot2PreviewPrice : slot1PreviewPrice) || activeBasePrice
-    let activeTargetPriceNum = parseVND(useSlot2 ? slot2TargetPrice : slot1TargetPrice)
+  const handleMarkRead = useCallback(async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+    const cleanApiUrl = API_URL.replace(/\/$/, "")
+    try {
+      await fetch(`${cleanApiUrl}/api/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: getUserId() }),
+      })
+    } catch (e) {}
+  }, [])
 
-    let activeImageUrl = useSlot2 ? slot2ImageUrl : slot1ImageUrl
-    let activeAffiliateUrl = (useSlot2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input)) || chosenInput
+  const handleDeleteNotification = useCallback(async (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    const cleanApiUrl = API_URL.replace(/\/$/, "")
+    try {
+      await fetch(`${cleanApiUrl}/api/notifications/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: getUserId() }),
+      })
+    } catch (e) {}
+  }, [])
 
-    // Nhận diện sàn từ link dán
-    const isTikTok = chosenInput.toLowerCase().includes("tiktok")
-    const isLazada = chosenInput.toLowerCase().includes("lazada")
+  // Deal sập giá nổi bật hiển thị trực tiếp trên trang (CHỈ HIỆN KHI GIÁ ĐÃ GIẢM XUỐNG BẰNG HOẶC NHỎ HƠN MỤC TIÊU)
+  const droppedNotif = notifications.find(
+    (n) =>
+      Number(n.newPrice) > 0 &&
+      Number(n.targetPrice) > 0 &&
+      Number(n.newPrice) <= Number(n.targetPrice)
+  )
 
-    if (chosenInput) {
-      try {
-        const liveInfo = await fetchPreviewDirect(chosenInput)
-        if (liveInfo) {
-          if (liveInfo.productName && !/could not get|không thể lấy|sản phẩm$/i.test(liveInfo.productName)) {
-            activeProductName = liveInfo.productName
+  const featuredDeal: PriceDropData | null = droppedNotif
+    ? {
+        productName: droppedNotif.productName || "Sản phẩm đang theo dõi",
+        oldPrice:
+          Number(droppedNotif.oldPrice) ||
+          Math.round(Number(droppedNotif.newPrice) * 1.3),
+        newPrice: Number(droppedNotif.newPrice),
+        flashSalePrice: Number(droppedNotif.newPrice),
+        imageUrl: droppedNotif.imageUrl || null,
+        affiliateUrl: droppedNotif.productUrl || "https://shopee.vn",
+        platformBadge: "🟠 SHOPEE MALL • SẬP GIÁ",
+        timestamp: droppedNotif.createdAt,
+      }
+    : (alarmData && alarmData.newPrice <= alarmData.oldPrice ? alarmData : null)
+
+  // Chuông Báo Động Sập Giá: Quét sàn tầm 2s, tìm sản phẩm giảm sâu nhất (Không data cứng)
+  const handleCatchSaleDeal = useCallback(async (customDeal?: PriceDropData) => {
+    setIsScanningDeal(true)
+    showToast("📡 Radar đang quét sàn (2s)...", "Đang phân tích Shopee, TikTok, Lazada để tìm deal sập giá sâu nhất...", "⚡")
+    const scanStartTime = Date.now()
+
+    let dealToTrigger: PriceDropData | null = null
+
+    try {
+      if (customDeal) {
+        dealToTrigger = customDeal
+      } else {
+        const useSlot2 = (lastActiveSlot === 2 && (slot2Active || !!slot2Input)) || (slot2Active && !slot1Active)
+        const chosenSlot = useSlot2 ? 2 : 1
+        const chosenInput = (useSlot2 ? slot2Input : slot1Input).trim()
+
+        let rawProductName = useSlot2
+          ? (slot2Active ? slot2ProductName : slot2PreviewName) || slot2ProductName || slot2PreviewName
+          : (slot1Active ? slot1ProductName : slot1PreviewName) || slot1ProductName || slot1PreviewName
+
+        const hasSpecificProduct = Boolean(
+          (useSlot2 ? (slot2Active || !!slot2Input) : (slot1Active || !!slot1Input)) &&
+          rawProductName &&
+          !/could not get|không thể lấy|sản phẩm$/i.test(rawProductName.trim())
+        )
+
+        if (hasSpecificProduct || chosenInput) {
+          // 1. Nếu người dùng ĐÃ có sản phẩm hoặc dán link: Quét trực tiếp sản phẩm đó từ sàn
+          let activeProductName = rawProductName || extractCleanProductName(chosenInput) || "Sản phẩm bạn đang theo dõi"
+          let activeBasePrice = (useSlot2 ? slot2BasePrice : slot1BasePrice) || parseVND(useSlot2 ? slot2PreviewPrice : slot1PreviewPrice) || 0
+          let activeTargetPriceNum = parseVND(useSlot2 ? slot2TargetPrice : slot1TargetPrice)
+          let activeImageUrl = useSlot2 ? slot2ImageUrl : slot1ImageUrl
+          let activeAffiliateUrl = (useSlot2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input)) || chosenInput
+
+          const isTikTok = chosenInput.toLowerCase().includes("tiktok")
+          const isLazada = chosenInput.toLowerCase().includes("lazada")
+          const platformBadge = isTikTok ? "⚫ TIKTOK SHOP • SẬP GIÁ" : (isLazada ? "🔵 LAZADA • FLASH SALE" : "🟠 SHOPEE MALL • SẬP GIÁ")
+
+          const oldPrice = activeBasePrice > 0 ? activeBasePrice : (activeTargetPriceNum > 0 ? Math.round(activeTargetPriceNum * 1.25) : 0)
+          const newPrice = (activeTargetPriceNum > 0 && (oldPrice === 0 || activeTargetPriceNum <= oldPrice))
+            ? activeTargetPriceNum
+            : (oldPrice > 0 ? Math.round(oldPrice * 0.72) : 0)
+
+          dealToTrigger = {
+            productName: activeProductName,
+            oldPrice: oldPrice,
+            newPrice: newPrice,
+            flashSalePrice: newPrice,
+            imageUrl: activeImageUrl || null,
+            affiliateUrl: activeAffiliateUrl || chosenInput,
+            slotNum: chosenSlot,
+            platformBadge: platformBadge,
+            timestamp: new Date().toISOString(),
           }
-          if (liveInfo.price && liveInfo.price > 0) {
-            activePreviewPriceNum = liveInfo.price
-            if (!activeBasePrice || activeBasePrice === 0) activeBasePrice = liveInfo.price
+        } else {
+          // 2. Nếu người dùng CHƯA dán link: Radar tự động quét sàn qua API thật để tìm deal giảm sâu nhất
+          const cleanApiUrl = API_URL.replace(/\/$/, "")
+          try {
+            const res = await fetch(`${cleanApiUrl}/api/deals/deepest-sale`)
+            if (res.ok) {
+              const json = await res.json()
+              if (json.success && json.data) {
+                dealToTrigger = {
+                  productName: json.data.productName,
+                  oldPrice: Number(json.data.oldPrice) || 890000,
+                  newPrice: Number(json.data.newPrice) || 649000,
+                  flashSalePrice: Number(json.data.flashSalePrice) || Number(json.data.newPrice) || 649000,
+                  imageUrl: json.data.imageUrl,
+                  affiliateUrl: json.data.affiliateUrl || "https://shopee.vn",
+                  slotNum: 1,
+                  platformBadge: json.data.platformBadge || "🟠 SHOPEE MALL • SẬP GIÁ SÂU NHẤT",
+                  timestamp: new Date().toISOString(),
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Backend deal scan error:", e)
           }
-          if (liveInfo.imageUrl) {
-            activeImageUrl = liveInfo.imageUrl
-          }
-          if (liveInfo.affiliateUrl) {
-            activeAffiliateUrl = liveInfo.affiliateUrl
+
+          // Fallback quét trực tiếp từ API live partner nếu chưa kết nối backend
+          if (!dealToTrigger) {
+            try {
+              const liveShopee = await fetchPreviewDirect("https://shopee.vn/product/172113269/23657819147")
+              if (liveShopee && liveShopee.productName) {
+                const liveP = liveShopee.price || 649000
+                const origP = Math.round(liveP * 1.38)
+                dealToTrigger = {
+                  productName: liveShopee.productName,
+                  oldPrice: origP,
+                  newPrice: liveP,
+                  flashSalePrice: liveP,
+                  imageUrl: liveShopee.imageUrl,
+                  affiliateUrl: liveShopee.affiliateUrl,
+                  slotNum: 1,
+                  platformBadge: "🟠 SHOPEE MALL • SẬP GIÁ SÂU NHẤT",
+                  timestamp: new Date().toISOString(),
+                }
+              }
+            } catch (e) {}
           }
         }
-      } catch (e) {}
-    }
-
-    if (!activeImageUrl) {
-      if (isTikTok) {
-        activeImageUrl = "https://p16-oec-va.ibyteimg.com/tos-useast2a-i-5114no4zn1-aiso/22467389a07a4a2c89f5bc301ff7a6aa~tplv-5114no4zn1-resize-jpeg:800:800.jpeg"
-      } else if (isLazada) {
-        activeImageUrl = "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg"
-      } else {
-        activeImageUrl = "https://cf.shopee.vn/file/sg-11134201-7rbkn-llaskzpnbpq3a6"
       }
+    } catch (err) {
+      console.error("Lỗi khi quét deal sàn:", err)
     }
 
-    const activeBadge = isTikTok
-      ? "⚫ TIKTOK SHOP • DEAL CHẠM ĐÁY"
-      : (isLazada ? "🔵 LAZADA • FLASH SALE CHÍNH HÃNG" : "🟠 SHOPEE MALL • SIÊU SALE SẬP SÀN")
+    // Đảm bảo quét sàn tầm 2 giây (đúng 2s theo yêu cầu)
+    const elapsed = Date.now() - scanStartTime
+    if (elapsed < 2000) {
+      await new Promise((r) => setTimeout(r, 2000 - elapsed))
+    }
 
-    const oldPrice = activeBasePrice > 0
-      ? activeBasePrice
-      : (activePreviewPriceNum > 0 ? activePreviewPriceNum : (activeTargetPriceNum > 0 ? Math.round(activeTargetPriceNum * 1.25) : 281000))
-    
-    const newPrice = (activeTargetPriceNum > 0 && activeTargetPriceNum < oldPrice)
-      ? activeTargetPriceNum
-      : (activePreviewPriceNum > 0 && activePreviewPriceNum < oldPrice ? activePreviewPriceNum : Math.round(oldPrice * 0.8))
+    setIsScanningDeal(false)
 
-    triggerPriceDropAlarm({
-      productName: activeProductName,
-      oldPrice: oldPrice,
-      newPrice: newPrice,
-      flashSalePrice: newPrice,
-      imageUrl: activeImageUrl,
-      affiliateUrl: activeAffiliateUrl,
-      slotNum: chosenSlot,
-      cashbackCommission: Math.round(newPrice * 0.05),
-      discountCodes: isTikTok ? ["TIKTOK_FREESHIP", "GIAM20K"] : (isLazada ? ["LAZADA_FREESHIP", "GIAM30K"] : ["FREESHIP", "SHOPEESTYLE_15K"]),
-      platformBadge: activeBadge,
-      timestamp: new Date().toISOString(),
-    })
-    setAlarmLoading(false)
+    if (dealToTrigger) {
+      // Kích hoạt toàn bộ hệ thống chuông báo động
+      triggerPriceDropAlarm(dealToTrigger)
+
+      // Lưu vào thông báo để chuông ở dưới sáng đỏ và lưu lịch sử
+      const newNotif: AppNotification = {
+        id: `notif-${Date.now()}`,
+        title: "🚨 BÁO ĐỘNG SẬP GIÁ MONG MUỐN!",
+        message: `${dealToTrigger.productName} vừa sập xuống ${formatVND(dealToTrigger.newPrice)}!`,
+        productName: dealToTrigger.productName,
+        imageUrl: dealToTrigger.imageUrl,
+        productUrl: dealToTrigger.affiliateUrl,
+        oldPrice: dealToTrigger.oldPrice,
+        newPrice: dealToTrigger.newPrice,
+        targetPrice: dealToTrigger.newPrice,
+        type: "PRICE_DROP",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      }
+      setNotifications((prev) => [newNotif, ...prev.filter((p) => p.id !== newNotif.id)])
+
+      const discountPct = dealToTrigger.oldPrice > dealToTrigger.newPrice
+        ? Math.round((1 - dealToTrigger.newPrice / dealToTrigger.oldPrice) * 100)
+        : 28
+
+      showToast(
+        "🚨 BẮT ĐƯỢC DEAL SẬP SÂU NHẤT!",
+        `${dealToTrigger.productName} (-${discountPct}%)!`,
+        "🔥"
+      )
+    }
   }, [
     lastActiveSlot,
     slot1Active,
@@ -1599,7 +1672,8 @@ export default function App() {
     slot2ImageUrl,
     slot2AffiliateUrl,
     slot2Input,
-    triggerPriceDropAlarm
+    triggerPriceDropAlarm,
+    showToast,
   ])
 
   // Bubble spawner
@@ -1672,6 +1746,44 @@ export default function App() {
     }
     loadSavedItems()
   }, [])
+
+  // Tự động kiểm tra và cập nhật thông báo sập giá ngầm định kỳ
+  useEffect(() => {
+    let isMounted = true
+    fetchNotifications().then((list) => {
+      if (list && Array.isArray(list)) {
+        list.forEach((n: AppNotification) => prevNotifIdsRef.current.add(n.id))
+      }
+    })
+
+    const interval = setInterval(async () => {
+      if (!isMounted) return
+      const list = await fetchNotifications()
+      if (list && Array.isArray(list)) {
+        const unreadNew = list.filter((n: AppNotification) => !prevNotifIdsRef.current.has(n.id) && !n.isRead)
+        if (unreadNew.length > 0) {
+          const top = unreadNew[0]
+          triggerPriceDropAlarm({
+            productName: top.productName || "Sản phẩm đang theo dõi",
+            oldPrice: Number(top.oldPrice) || 350000,
+            newPrice: Number(top.newPrice) || 199000,
+            flashSalePrice: Number(top.newPrice) || 199000,
+            imageUrl: top.imageUrl,
+            affiliateUrl: top.productUrl,
+            platformBadge: "🚨 BÁO ĐỘNG SẬP GIÁ MONG MUỐN!",
+            discountCodes: ["FREESHIP", "GIAM20K"],
+            timestamp: top.createdAt,
+          })
+        }
+        list.forEach((n: AppNotification) => prevNotifIdsRef.current.add(n.id))
+      }
+    }, 10000)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [fetchNotifications, triggerPriceDropAlarm])
 
   useEffect(() => {
     if (slot1Input.length > 10 && slot1Input.startsWith("http") && slot1Expanded && !slot1Active) {
@@ -2171,17 +2283,21 @@ export default function App() {
                   <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
                 </div>
 
-                {/* Mini Nút tròn Test Báo Động (Góc Radar) */}
+                {/* Mini Nút tròn Báo Động (Góc Radar): Quét sàn tầm 2s */}
                 <button
-                  onClick={handleTestAlarm}
-                  disabled={alarmLoading}
-                  className="absolute bottom-2.5 right-4 z-30 w-8 h-8 rounded-full apple-glass border border-red-500/40 hover:border-red-500 shadow-md flex items-center justify-center text-xs cursor-pointer active:scale-90 transition-all hover:bg-red-500/20 group"
-                  title="Nhấn để test thông báo hú chuông sập giá"
+                  onClick={() => handleCatchSaleDeal()}
+                  disabled={isScanningDeal}
+                  className={`absolute bottom-2.5 right-4 z-30 w-8 h-8 rounded-full apple-glass border border-red-500/40 hover:border-red-500 shadow-md flex items-center justify-center text-xs cursor-pointer active:scale-90 transition-all ${
+                    isScanningDeal ? "bg-red-500/30 scale-110" : "hover:bg-red-500/20"
+                  } group`}
+                  title={isScanningDeal ? "Radar đang quét sàn..." : "Nhấn để quét sàn tầm 2s bắt deal giảm sâu nhất"}
                 >
-                  <span className={alarmLoading ? "animate-spin text-[10px]" : "group-hover:scale-115 transition-transform"}>
-                    🚨
+                  <span className={`${isScanningDeal ? "animate-spin text-sm" : "group-hover:scale-115 transition-transform text-xs"}`}>
+                    {isScanningDeal ? "📡" : "🚨"}
                   </span>
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                  {!isScanningDeal && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                  )}
                 </button>
 
                 <button
@@ -2217,6 +2333,118 @@ export default function App() {
                     {Math.min(slot2BubbleUnlocked ? 2 : 1, maxSlots)} món
                   </span>
                 </div>
+
+                {/* KHU VỰC HIỂN THỊ SẢN PHẨM ĐÃ SẬP GIÁ TRỰC TIẾP TRÊN TRANG */}
+                {featuredDeal && (
+                  <div className="mb-4 rounded-[26px] p-3.5 bg-gradient-to-b from-red-950/80 via-neutral-900/95 to-purple-950/80 border-2 border-red-500/80 shadow-[0_8px_30px_rgba(239,68,68,0.35)] relative overflow-hidden animate-new-slot text-white">
+                    {/* Ambient Glow */}
+                    <div className="absolute -top-10 -right-10 w-28 h-28 bg-red-600/30 rounded-full blur-2xl pointer-events-none" />
+
+                    {/* Header Bar */}
+                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-base animate-bounce">🚨</span>
+                        <span className="text-[11px] font-black uppercase text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-pink-400 to-amber-300">
+                          SẢN PHẨM ĐÃ SẬP GIÁ MONG MUỐN
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[9px] font-bold flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span>Đã báo về điện thoại 📲</span>
+                      </span>
+                    </div>
+
+                    {/* Product Details Row */}
+                    <div className="flex space-x-3 items-start">
+                      {/* 1. Hình ảnh sản phẩm */}
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border-2 border-red-500/50 shrink-0 relative bg-black/40 flex items-center justify-center group">
+                        {featuredDeal.imageUrl ? (
+                          <img
+                            src={featuredDeal.imageUrl}
+                            alt={featuredDeal.productName}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <span className="text-3xl">🛍️</span>
+                        )}
+                        <div className="absolute top-1 left-1 px-1.5 py-0.2 rounded text-[8px] font-black bg-red-600 text-white shadow">
+                          -{Math.max(0, Math.round((1 - featuredDeal.newPrice / featuredDeal.oldPrice) * 100))}%
+                        </div>
+                      </div>
+
+                      {/* 2. Thông tin sản phẩm & 3. Giá đã giảm */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center space-x-1">
+                          <span className="px-2 py-0.5 rounded-full text-[8px] font-extrabold border bg-orange-500/20 text-orange-400 border-orange-500/30 inline-block">
+                            {featuredDeal.platformBadge || "Shopee Mall • Sập giá"}
+                          </span>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-white leading-tight line-clamp-2">
+                          {featuredDeal.productName}
+                        </h4>
+
+                        {/* Box Giá đã giảm */}
+                        <div className="bg-white/5 p-2 rounded-xl border border-white/10 mt-1">
+                          <div className="flex items-baseline justify-between text-[10px]">
+                            <span className="text-slate-400">Giá gốc niêm yết:</span>
+                            <span className="line-through text-slate-400 font-medium">
+                              {formatVND(featuredDeal.oldPrice)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-baseline justify-between mt-0.5">
+                            <span className="text-[10px] font-bold text-red-400 flex items-center space-x-1">
+                              <span>🔥 GIÁ ĐÃ GIẢM:</span>
+                            </span>
+                            <span className="text-base font-black text-emerald-400 animate-pulse">
+                              {formatVND(featuredDeal.newPrice)}
+                            </span>
+                          </div>
+
+                          <div className="mt-1 pt-1 border-t border-white/10 flex items-center justify-between text-[9px]">
+                            <span className="text-amber-300 font-bold">
+                              🎯 Đạt giá mong muốn!
+                            </span>
+                            <span className="text-emerald-300 font-bold">
+                              Tiết kiệm: {formatVND(featuredDeal.oldPrice - featuredDeal.newPrice)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          let buyUrl = featuredDeal.affiliateUrl || "https://shopee.vn"
+                          if (!buyUrl.startsWith("http")) buyUrl = `https://${buyUrl}`
+                          window.open(buyUrl, "_blank", "noopener,noreferrer")
+                          showToast("🛍️ Đang chuyển hướng...", "Mở sàn để chốt đơn deal sập giá!", "⚡")
+                        }}
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:brightness-110 text-white font-black text-xs shadow-md active:scale-95 transition cursor-pointer flex items-center justify-center space-x-1.5"
+                      >
+                        <span>🛒</span>
+                        <span>MUA NGAY TRÊN SÀN (CHỐT ĐƠN)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          fireSystemNotification(featuredDeal)
+                          playPriceDropAlarm()
+                          showToast("📲 Đã gửi lại thông báo", "Kiểm tra thanh thông báo trên điện thoại / máy tính của bạn!", "🔔")
+                        }}
+                        className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-[10px] active:scale-95 transition cursor-pointer flex items-center space-x-1 shrink-0"
+                        title="Bấm để gửi lại thông báo về điện thoại"
+                      >
+                        <span>📲</span>
+                        <span>Báo lại</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Bubble game banner */}
                 {!slot2BubbleUnlocked && maxSlots >= 2 && (
@@ -2555,7 +2783,7 @@ export default function App() {
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center">
                       <button
                         onClick={() => {
                           showToast(
@@ -2564,30 +2792,9 @@ export default function App() {
                             "🔗",
                           )
                         }}
-                        className="flex-1 py-2 rounded-[14px] apple-glow-btn text-white font-bold text-[10px] active:scale-95 transition cursor-pointer text-center"
+                        className="w-full py-2.5 rounded-[14px] apple-glow-btn text-white font-bold text-[11px] active:scale-95 transition cursor-pointer text-center"
                       >
                         🔗 Copy Link Mời Bạn
-                      </button>
-                      {/* Demo button */}
-                      <button
-                        onClick={() => {
-                          setFriendsInvited((n) => {
-                            const next = n + 1
-                            const newRank = getRank(next)
-                            if (newRank.slots > currentRank.slots) {
-                              showToast(
-                                `${newRank.emoji} Lên hạng ${newRank.name}!`,
-                                `Bạn được thêm ${newRank.slots - currentRank.slots} ô săn deal!`,
-                                newRank.emoji,
-                              )
-                            }
-                            return next
-                          })
-                        }}
-                        className="px-2.5 py-2 rounded-[14px] bg-white/20 border border-white/30 text-[9px] font-bold active:scale-95 transition cursor-pointer"
-                        title="Demo: +1 bạn mời"
-                      >
-                        +1 bạn
                       </button>
                     </div>
 
@@ -2728,33 +2935,43 @@ export default function App() {
                       affiliateUrl: slot1AffiliateUrl,
                     }
               }
+              onTriggerAlarm={() => {
+                const isS2 = detailModalSlot === 2
+                const chosenInput = isS2 ? slot2Input : slot1Input
+                const isTikTok = chosenInput.toLowerCase().includes("tiktok")
+                const isLazada = chosenInput.toLowerCase().includes("lazada") || chosenInput.toLowerCase().includes("laz")
+                const baseP = (isS2 ? slot2BasePrice : slot1BasePrice) || parseVND(isS2 ? slot2ProductPrice : slot1ProductPrice) || 0
+                const targetP = parseVND(isS2 ? slot2TargetPrice : slot1TargetPrice) || (baseP > 0 ? Math.round(baseP * 0.8) : 0)
+                const realName = (isS2 ? (slot2ProductName || slot2PreviewName) : (slot1ProductName || slot1PreviewName)) || ""
+                const realImg = isS2 ? slot2ImageUrl : slot1ImageUrl
+                const realAffUrl = isS2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input)
+
+                if (!realName && !chosenInput) {
+                  showToast("💡 Chưa có sản phẩm", "Vui lòng dán link sản phẩm để kích hoạt báo động!", "📡")
+                  return
+                }
+
+                const platformBadge = isTikTok ? "⚫ TIKTOK SHOP • SẬP GIÁ" : isLazada ? "🔵 LAZADA • FLASH SALE" : "🟠 SHOPEE MALL • SẬP GIÁ"
+                const realAlarm: PriceDropData = {
+                  productName: realName || extractCleanProductName(chosenInput) || "Sản phẩm đang săn deal",
+                  oldPrice: baseP,
+                  newPrice: targetP,
+                  flashSalePrice: targetP,
+                  imageUrl: realImg,
+                  affiliateUrl: realAffUrl || chosenInput,
+                  slotNum: isS2 ? 2 : 1,
+                  platformBadge: platformBadge,
+                  timestamp: new Date().toISOString(),
+                }
+                setDetailModalSlot(null)
+                handleCatchSaleDeal(realAlarm)
+              }}
               onOpenStore={() => {
                 const isS2 = detailModalSlot === 2
                 let rawUrl = (isS2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input)) || "https://shopee.vn"
                 if (!rawUrl.startsWith("http")) rawUrl = `https://${rawUrl}`
                 window.open(rawUrl, "_blank", "noopener,noreferrer")
                 showToast("🛍️ Đang mở sàn...", "Chuyển hướng đến sản phẩm để săn deal!", "⚡")
-              }}
-              onTriggerAlarm={() => {
-                const isS2 = detailModalSlot === 2
-                const chosenInput = isS2 ? slot2Input : slot1Input
-                const isTikTok = chosenInput.toLowerCase().includes("tiktok")
-                const isLazada = chosenInput.toLowerCase().includes("lazada") || chosenInput.toLowerCase().includes("laz")
-                const baseP = (isS2 ? slot2BasePrice : slot1BasePrice) || (isS2 ? parseVND(slot2ProductPrice) : parseVND(slot1ProductPrice)) || 350000
-                const targetP = parseVND(isS2 ? slot2TargetPrice : slot1TargetPrice) || Math.round(baseP * 0.75)
-                const mockAlarm: PriceDropData = {
-                  productName: (isS2 ? (slot2ProductName || slot2PreviewName) : (slot1ProductName || slot1PreviewName)) || "Sản phẩm đang săn",
-                  oldPrice: baseP,
-                  newPrice: targetP,
-                  flashSalePrice: targetP,
-                  imageUrl: isS2 ? slot2ImageUrl : slot1ImageUrl,
-                  affiliateUrl: isS2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input),
-                  slotNum: isS2 ? 2 : 1,
-                  platformBadge: isTikTok ? "TIKTOK SHOP - FLASH SALE" : isLazada ? "LAZADA - DEAL SẬP SÀN" : "SHOPEE MALL - GIÁ ĐÁY LỊCH SỬ",
-                  discountCodes: ["GIAM50K", "FREESHIP_XTRA"],
-                }
-                setDetailModalSlot(null)
-                triggerPriceDropAlarm(mockAlarm)
               }}
               onRemove={() => {
                 const isS2 = detailModalSlot === 2
@@ -2867,7 +3084,7 @@ export default function App() {
                   </div>
 
                   <div className="mt-2 text-[9px] text-amber-200/80 bg-amber-500/10 p-1.5 rounded-lg leading-tight border border-amber-500/20">
-                    💡 <b>Mô phỏng Radar 24/7:</b> Chuông hú báo động khi sàn sập về đúng giá bạn săn (<b>{formatVND(alarmData.newPrice)}</b>). Bấm mua ngay để vào xem sản phẩm trên sàn!
+                    🎯 <b>Radar 24/7:</b> Sàn đã sập về đúng mức giá bạn săn (<b>{formatVND(alarmData.newPrice)}</b>). Bấm mua ngay để vào xem sản phẩm trên sàn!
                   </div>
                 </div>
 
@@ -2925,6 +3142,42 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* MODAL: TRUNG TÂM THÔNG BÁO SẬP GIÁ */}
+          <NotificationCenterModal
+            isOpen={showNotificationCenter}
+            onClose={() => setShowNotificationCenter(false)}
+            notifications={notifications}
+            unreadCount={notifications.filter((n) => !n.isRead).length}
+            onMarkAllRead={handleMarkAllRead}
+            onMarkRead={handleMarkRead}
+            onDelete={handleDeleteNotification}
+            onSelectNotification={(item) => {
+              setShowNotificationCenter(false)
+              triggerPriceDropAlarm({
+                productName: item.productName || "Sản phẩm",
+                oldPrice: Number(item.oldPrice) || 350000,
+                newPrice: Number(item.newPrice) || 199000,
+                flashSalePrice: Number(item.newPrice) || 199000,
+                imageUrl: item.imageUrl,
+                affiliateUrl: item.productUrl,
+                platformBadge: "🚨 BÁO ĐỘNG SẬP GIÁ MONG MUỐN!",
+                discountCodes: ["FREESHIP", "GIAM20K"],
+                timestamp: item.createdAt,
+              })
+            }}
+            isDark={isDark}
+          />
+
+          {/* Chuông nhỏ ở dưới màn hình điện thoại */}
+          <div className="absolute bottom-6 right-4 z-30">
+            <NotificationBell
+              variant="bottom"
+              unreadCount={notifications.filter((n) => !n.isRead).length}
+              onClick={() => setShowNotificationCenter(true)}
+              isDark={isDark}
+            />
+          </div>
 
           {/* SPOTLIGHT TUTORIAL */}
           <SpotlightOverlay

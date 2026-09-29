@@ -1,12 +1,21 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
+const { getAuth } = require('firebase-admin/auth');
 
 // Đọc file key JSON bạn đã bỏ vào thư mục config
 const serviceAccount = require('./firebase-admin-key.json');
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+let app;
+try {
+  app = initializeApp({
+    credential: cert(serviceAccount)
+  });
+  console.log("🔥 Firebase Admin đã khởi tạo thành công!");
+} catch (err) {
+  console.error("Lỗi khởi tạo Firebase Admin:", err.message);
+}
 
-console.log("🔥 Firebase Admin đã khởi tạo thành công!");
+const messaging = app ? getMessaging(app) : null;
+const auth = app ? getAuth(app) : null;
 
-module.exports = admin;
+module.exports = { app, messaging, auth };

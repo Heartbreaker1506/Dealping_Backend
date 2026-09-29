@@ -3,7 +3,7 @@ const prisma = require("../config/prisma");
 const shopeePriceService = require("./shopeePriceService");
 const tiktokPriceService = require("./tiktokPriceService");
 const lazadaPriceService = require("./lazadaPriceService");
-const { sendPushNotification } = require("./notificationService");
+const { notifyPriceDrop } = require("./notificationService");
 
 /**
  * Bắt đầu các cron jobs để lấy giá tự động.
@@ -62,19 +62,21 @@ function startCronJobs() {
               } đã đạt giá mục tiêu (${currentPrice} <= ${item.targetPrice.toNumber()})!`
             );
 
-            // Gửi Push Notification qua Firebase
-            if (item.user && item.user.deviceToken) {
-              try {
-                const title = "DealPing - SẬP GIÁ! 🎉";
-                const body = `Sản phẩm "${item.productName || 'Bạn đang theo dõi'}" đã giảm xuống còn ${currentPrice}đ. Mua ngay kẻo lỡ!`;
-                await sendPushNotification(item.user.deviceToken, title, body, {
-                  trackingItemId: item.id,
-                  productUrl: item.productUrl || ""
-                });
-                console.log(`[CRON] Đã gửi Push Notification đến user ${item.user.id}`);
-              } catch (pushErr) {
-                console.error(`[CRON] Lỗi gửi Push Notification:`, pushErr.message);
-              }
+            // Tạo thông báo sập giá in-app & gửi Push Notification
+            try {
+              await notifyPriceDrop({
+                userId: item.userId,
+                deviceToken: item.user ? item.user.deviceToken : null,
+                trackingItemId: item.id,
+                productName: item.productName || "Sản phẩm bạn đang theo dõi",
+                productUrl: item.productUrl || "",
+                oldPrice: item.originalPrice ? item.originalPrice.toNumber() : Math.round(currentPrice * 1.3),
+                newPrice: currentPrice,
+                targetPrice: item.targetPrice.toNumber(),
+              });
+              console.log(`[CRON] Đã ghi nhận thông báo sập giá cho user ${item.userId}`);
+            } catch (notifyErr) {
+              console.error(`[CRON] Lỗi khi tạo thông báo sập giá:`, notifyErr.message);
             }
           } else {
             console.log(

@@ -27,6 +27,7 @@ model User {
   referredBy     String?  @map("referred_by")
 
   trackingItems TrackingItem[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -61,6 +62,7 @@ model TrackingItem {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   priceHistories PriceHistory[]
+  notifications Notification[]
 
   // Do URL/itemId khác nhau giữa các sàn, tạm thời bỏ unique constraint để tránh lỗi
   // @@unique([userId, itemId], name: "uniq_user_item")
@@ -77,4 +79,27 @@ model PriceHistory {
 
   @@index([trackingItemId, timestamp])
   @@map("price_history")
+}
+
+model Notification {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  trackingItemId String?       @map("tracking_item_id")
+  title          String
+  message        String
+  productName    String?       @map("product_name")
+  imageUrl       String?       @map("image_url")
+  productUrl     String?       @map("product_url")
+  oldPrice       Decimal?      @map("old_price") @db.Decimal(12, 2)
+  newPrice       Decimal?      @map("new_price") @db.Decimal(12, 2)
+  targetPrice    Decimal?      @map("target_price") @db.Decimal(12, 2)
+  type           String        @default("PRICE_DROP")
+  isRead         Boolean       @default(false) @map("is_read")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackingItem   TrackingItem? @relation(fields: [trackingItemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
