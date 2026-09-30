@@ -8,7 +8,11 @@ const axios = require("axios");
  * @returns 
  */
 async function fetchCurrentPrice(itemId, shopId, url = "") {
-  const apiKey = process.env.ADDLIVETAG_API_KEY || "d6a8444ee2905b22025df808705841ce5a0e5f168dc3f83b";
+  const apiKey = process.env.ADDLIVETAG_API_KEY;
+  if (!apiKey) {
+    console.error("ADDLIVETAG_API_KEY is not set in environment variables");
+    return { price: 0, productName: null, imageUrl: null, isXtra: false, sellerComFinal: 0, variants: [], flashSalePrice: null, cashbackCommission: 0, discountCodes: [] };
+  }
   try {
     const { data } = await axios.get(`https://data.addlivetag.com/product-data/product-data.php?item_id=${itemId}&key=${apiKey}`, {
       timeout: 10000,
@@ -21,10 +25,10 @@ async function fetchCurrentPrice(itemId, shopId, url = "") {
         imageUrl: data.productInfo.imageUrl || null,
         isXtra: data.productInfo.isXtra,
         sellerComFinal: data.productInfo.sellerComFinal,
-        variants: ["Mặc định (Tất cả phân loại)"],
-        flashSalePrice: null,
-        cashbackCommission: Math.round((data.productInfo.price || 0) * 0.05),
-        discountCodes: []
+        variants: data.productInfo.variants || [],
+        flashSalePrice: data.productInfo.flashSalePrice || null,
+        cashbackCommission: data.productInfo.cashbackCommission || 0,
+        discountCodes: data.productInfo.discountCodes || []
       };
     }
   } catch (err) {

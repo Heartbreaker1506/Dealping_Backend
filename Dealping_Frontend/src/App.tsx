@@ -342,7 +342,11 @@ function extractCleanProductName(url: string): string {
 }
 
 async function fetchPreviewDirect(shopeeUrl: string) {
-  const ADDLIVETAG_KEY = "d6a8444ee2905b22025df808705841ce5a0e5f168dc3f83b"
+  const ADDLIVETAG_KEY = import.meta.env.VITE_ADDLIVETAG_KEY || ""
+  if (!ADDLIVETAG_KEY) {
+    console.warn("VITE_ADDLIVETAG_KEY is not set")
+    return null
+  }
   const urlLower = shopeeUrl.toLowerCase()
 
   // 1. TikTok Shop Live Partner API
@@ -354,16 +358,16 @@ async function fetchPreviewDirect(shopeeUrl: string) {
         const json = await res.json()
         if (json && json.status === "success" && json.productInfo) {
           const p = json.productInfo
-          const rawPrice = Number(p.price) || 245000
+          const rawPrice = Number(p.price) || 0
           const voucherPrice = Number(p.voucherPrice) || Number(p.discountPrice) || (p.priceAfterVoucher ? Number(p.priceAfterVoucher) : null)
           return {
             productName: p.productName || extractCleanProductName(shopeeUrl),
             price: rawPrice,
             currentPrice: rawPrice,
             voucherPrice: voucherPrice,
-            imageUrl: p.imageUrl || "https://p16-oec-va.ibyteimg.com/tos-useast2a-i-5114no4zn1-aiso/22467389a07a4a2c89f5bc301ff7a6aa~tplv-5114no4zn1-resize-jpeg:800:800.jpeg",
+            imageUrl: p.imageUrl || null,
             affiliateUrl: p.productLink || shopeeUrl,
-            variants: ["Mặc định (Tất cả phân loại)", "Màu Nâu", "Màu Xanh", "Size S", "Size M", "Size L"],
+            variants: p.variants || [],
           }
         }
       }
@@ -381,16 +385,16 @@ async function fetchPreviewDirect(shopeeUrl: string) {
         const json = await res.json()
         if (json && json.status === "success" && json.productInfo) {
           const p = json.productInfo
-          const rawPrice = Number(p.price) || 87318
+          const rawPrice = Number(p.price) || 0
           const voucherPrice = Number(p.voucherPrice) || null
           return {
-            productName: p.productName || extractCleanProductName(shopeeUrl) || "Tai Nghe Không Dây X55 Bluetooth 5.3 Thể Thao Chống Ồn Chống Nước Tích Hợp Micro Cao Cấp",
+            productName: p.productName || extractCleanProductName(shopeeUrl),
             price: rawPrice,
             currentPrice: rawPrice,
             voucherPrice: voucherPrice,
-            imageUrl: p.imageUrl || "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg",
+            imageUrl: p.imageUrl || null,
             affiliateUrl: p.originLink || p.productLink || shopeeUrl,
-            variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng"],
+            variants: p.variants || [],
           }
         }
       }
@@ -398,43 +402,19 @@ async function fetchPreviewDirect(shopeeUrl: string) {
       console.warn("Direct Lazada AddLiveTag fetch error:", e)
     }
     return {
-      productName: extractCleanProductName(shopeeUrl) || "Tai Nghe Không Dây X55 Bluetooth 5.3 Thể Thao Chống Ồn Chống Nước Tích Hợp Micro Cao Cấp",
-      price: 87318,
-      currentPrice: 87318,
+      productName: extractCleanProductName(shopeeUrl) || null,
+      price: 0,
+      currentPrice: 0,
       voucherPrice: null,
-      imageUrl: "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg",
+      imageUrl: null,
       affiliateUrl: shopeeUrl,
-      variants: ["Mặc định", "Màu Đen", "Màu Trắng"],
+      variants: [],
     }
   }
 
   // 3. Shopee Live Partner API
   const itemId = extractShopeeItemIdClient(shopeeUrl)
   if (itemId) {
-    if (itemId === "23053826422") {
-      return {
-        productName: "Bh Áo Tay Phồng Dài Cổ Tròn Dáng Rộng Viền Gỗ vintage Cho Nữ",
-        price: 202860,
-        currentPrice: 202860,
-        voucherPrice: 202860,
-        imageUrl: "https://cf.shopee.vn/file/sg-11134201-7rbkn-llaskzpnbpq3a6",
-        affiliateUrl: "https://shopee.vn/product/344823086/23053826422",
-        variants: ["Mặc định (Tất cả phân loại)", "Quá mơ", "Đen"],
-      }
-    }
-
-    if (itemId === "23657819147") {
-      return {
-        productName: "Túi da pu DAVID JONES đeo chéo thời trang cho nữ",
-        price: 450300,
-        currentPrice: 450300,
-        voucherPrice: 450300,
-        imageUrl: "https://cf.shopee.vn/file/cn-11134207-7ras8-m0ontxpdremfda",
-        affiliateUrl: "https://shopee.vn/product/172113269/23657819147",
-        variants: ["Mặc định (Tất cả phân loại)", "Be", "Màu xám", "Đen", "HOTCHOCOLATE"],
-      }
-    }
-
     try {
       const liveUrl = `https://data.addlivetag.com/product-data/product-data.php?item_id=${itemId}&key=${ADDLIVETAG_KEY}`
       const res = await fetch(liveUrl)
@@ -444,7 +424,7 @@ async function fetchPreviewDirect(shopeeUrl: string) {
           const p = json.productInfo
           const rawPrice = Number(p.price) || Number(p.priceStats?.currentPrice) || Number(p.latestPriceHistory?.price) || 0
           let voucherPrice = Number(p.voucherPrice) || Number(p.priceAfterVoucher) || (p.latestPriceHistory?.flashSale ? Number(p.latestPriceHistory.price) : null)
-          
+
           if (!voucherPrice && p.latestPriceHistory?.discountPercent > 0 && rawPrice > 0) {
             voucherPrice = Math.round(rawPrice * (1 - p.latestPriceHistory.discountPercent / 100))
           }
@@ -461,7 +441,7 @@ async function fetchPreviewDirect(shopeeUrl: string) {
               voucherPrice: voucherPrice,
               imageUrl: p.imageUrl || null,
               affiliateUrl: p.originLink || p.productLink || shopeeUrl,
-              variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Màu Be", "Màu Xám"],
+              variants: p.variants || [],
             }
           }
         }
@@ -471,18 +451,19 @@ async function fetchPreviewDirect(shopeeUrl: string) {
     }
   }
 
-  // Fallback bóc tên từ URL & đặt giá giả định hợp lý
+  // Fallback: chỉ bóc tên từ URL, không đoán giá
   const fallbackName = extractCleanProductName(shopeeUrl)
   return {
     productName: fallbackName,
-    price: 350000,
-    currentPrice: 350000,
+    price: 0,
+    currentPrice: 0,
     voucherPrice: null,
     imageUrl: null,
     affiliateUrl: shopeeUrl,
-    variants: ["Mặc định (Tất cả phân loại)", "Màu Đen", "Màu Trắng", "Size M", "Size L"],
+    variants: [],
   }
 }
+
 
 async function fetchPreview(shopeeUrl: string) {
   try {
@@ -1213,7 +1194,7 @@ function SlotCard({
             >
               {productImage || previewImage ? (
                 <img
-                  src={productImage || previewImage}
+                  src={productImage || previewImage || undefined}
                   alt=""
                   className="w-full h-full object-cover rounded-xl"
                   onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
@@ -1357,7 +1338,7 @@ export default function App() {
     if (!("Notification" in window)) return
     const title = "🚨 DEALPING: BÁO ĐỘNG SẬP GIÁ!"
     const savings = Math.max(0, Math.round((1 - data.newPrice / data.oldPrice) * 100))
-    const options: NotificationOptions = {
+    const options: NotificationOptions & { renotify?: boolean } = {
       body: `${data.productName} vừa sập giá còn ${formatVND(data.newPrice)} (-${savings}%)! Mua ngay kẻo hết!`,
       icon: data.imageUrl || "https://fav.farm/🚨",
       tag: `dealping-alarm-${Date.now()}`,
@@ -1416,41 +1397,7 @@ export default function App() {
 
   const alarmDealCycleRef = useRef(0)
 
-  const LIVE_PLATFORM_DEALS = [
-    {
-      platform: "Lazada",
-      badge: "🔵 LAZADA • FLASH SALE CHÍNH HÃNG",
-      productName: "Tai Nghe Không Dây X55 Bluetooth 5.3 Thể Thao Chống Ồn Chống Nước Tích Hợp Micro Cao Cấp",
-      imageUrl: "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg",
-      affiliateUrl: "https://www.lazada.vn/products/pdp-i2405568127.html",
-      oldPrice: 190000,
-      newPrice: 87318,
-      flashSalePrice: 87318,
-      discountCodes: ["LAZADA_FREESHIP", "GIAM10%"],
-    },
-    {
-      platform: "Shopee",
-      badge: "🟠 SHOPEE MALL • FLASH SALE",
-      productName: "Bh Áo Tay Phồng Dài Cổ Tròn Dáng Rộng Viền Gỗ vintage Cho Nữ",
-      imageUrl: "https://cf.shopee.vn/file/sg-11134201-7rbkn-llaskzpnbpq3a6",
-      affiliateUrl: "https://shopee.vn/product/344823086/23053826422",
-      oldPrice: 281000,
-      newPrice: 202860,
-      flashSalePrice: 202860,
-      discountCodes: ["FREESHIP", "SHOPEESTYLE_15K"],
-    },
-    {
-      platform: "TikTok",
-      badge: "⚫ TIKTOK SHOP • DEAL CHẠM ĐÁY",
-      productName: "Váy Yếm Jean Ngắn Kèm Đai 2 Màu - Thiết Kế Thời Trang Form Xinh Tôn Dáng Hiệu Quả Phù Hợp Mặc Đi Học Hoặc Đi Chơi Màu Nâu & Xanh Kích Thước S M L",
-      imageUrl: "https://p16-oec-va.ibyteimg.com/tos-useast2a-i-5114no4zn1-aiso/22467389a07a4a2c89f5bc301ff7a6aa~tplv-5114no4zn1-resize-jpeg:800:800.jpeg",
-      affiliateUrl: "https://shop.tiktok.com/vn/pdp/1735608403532482138",
-      oldPrice: 299000,
-      newPrice: 245000,
-      flashSalePrice: 245000,
-      discountCodes: ["TIKTOK_FREESHIP", "GIAM20K"],
-    },
-  ]
+  // Deal list is fetched from API only, no hardcoded fallback
 
   const handleTestAlarm = useCallback(async () => {
     setAlarmLoading(true)
@@ -1485,7 +1432,9 @@ export default function App() {
       } catch (e) {}
 
       if (dealsList.length === 0) {
-        dealsList = LIVE_PLATFORM_DEALS
+        setAlarmLoading(false)
+        showToast("⚠️ Không có deal", "Chưa có deal nào từ hệ thống. Hãy dán link sản phẩm vào ô theo dõi.", "📭")
+        return
       }
 
       const currentIndex = alarmDealCycleRef.current % dealsList.length
@@ -1500,8 +1449,8 @@ export default function App() {
         slotNum: 1,
         imageUrl: topDeal.imageUrl,
         affiliateUrl: topDeal.affiliateUrl,
-        cashbackCommission: topDeal.cashbackCommission || Math.round(topDeal.newPrice * 0.05),
-        discountCodes: topDeal.discountCodes || ["FREESHIP", "GIAM20K"],
+        cashbackCommission: topDeal.cashbackCommission || 0,
+        discountCodes: topDeal.discountCodes || [],
         platformBadge: topDeal.badge,
         timestamp: new Date().toISOString(),
       })
@@ -1543,15 +1492,7 @@ export default function App() {
       } catch (e) {}
     }
 
-    if (!activeImageUrl) {
-      if (isTikTok) {
-        activeImageUrl = "https://p16-oec-va.ibyteimg.com/tos-useast2a-i-5114no4zn1-aiso/22467389a07a4a2c89f5bc301ff7a6aa~tplv-5114no4zn1-resize-jpeg:800:800.jpeg"
-      } else if (isLazada) {
-        activeImageUrl = "https://vn-live-01.slatic.net/p/dc8ce4e157ef108e89c7608de2425ce9.jpg"
-      } else {
-        activeImageUrl = "https://cf.shopee.vn/file/sg-11134201-7rbkn-llaskzpnbpq3a6"
-      }
-    }
+    // No hardcoded fallback images — leave null if not available
 
     const activeBadge = isTikTok
       ? "⚫ TIKTOK SHOP • DEAL CHẠM ĐÁY"
@@ -1559,11 +1500,11 @@ export default function App() {
 
     const oldPrice = activeBasePrice > 0
       ? activeBasePrice
-      : (activePreviewPriceNum > 0 ? activePreviewPriceNum : (activeTargetPriceNum > 0 ? Math.round(activeTargetPriceNum * 1.25) : 281000))
+      : (activePreviewPriceNum > 0 ? activePreviewPriceNum : (activeTargetPriceNum > 0 ? Math.round(activeTargetPriceNum * 1.25) : 0))
     
     const newPrice = (activeTargetPriceNum > 0 && activeTargetPriceNum < oldPrice)
       ? activeTargetPriceNum
-      : (activePreviewPriceNum > 0 && activePreviewPriceNum < oldPrice ? activePreviewPriceNum : Math.round(oldPrice * 0.8))
+      : (activePreviewPriceNum > 0 && activePreviewPriceNum < oldPrice ? activePreviewPriceNum : oldPrice)
 
     triggerPriceDropAlarm({
       productName: activeProductName,
@@ -1573,8 +1514,8 @@ export default function App() {
       imageUrl: activeImageUrl,
       affiliateUrl: activeAffiliateUrl,
       slotNum: chosenSlot,
-      cashbackCommission: Math.round(newPrice * 0.05),
-      discountCodes: isTikTok ? ["TIKTOK_FREESHIP", "GIAM20K"] : (isLazada ? ["LAZADA_FREESHIP", "GIAM30K"] : ["FREESHIP", "SHOPEESTYLE_15K"]),
+      cashbackCommission: 0,
+      discountCodes: [],
       platformBadge: activeBadge,
       timestamp: new Date().toISOString(),
     })
@@ -1685,7 +1626,7 @@ export default function App() {
               : extractCleanProductName(slot1Input)
             setSlot1PreviewName(pName)
 
-            const rawPrice = Number(data.price) || Number(data.currentPrice) || 289000
+            const rawPrice = Number(data.price) || Number(data.currentPrice) || 0
             setSlot1BasePrice(rawPrice)
             setSlot1PreviewPrice(formatVND(rawPrice))
 
@@ -1715,9 +1656,9 @@ export default function App() {
           if (isSubscribed) {
             const fallbackName = extractCleanProductName(slot1Input)
             setSlot1PreviewName(fallbackName)
-            setSlot1BasePrice(289000)
-            setSlot1PreviewPrice(formatVND(289000))
-            setSlot1TargetPrice(formatInputNumber(225000))
+            setSlot1BasePrice(0)
+            setSlot1PreviewPrice("")
+            setSlot1TargetPrice("")
           }
         })
         .finally(() => {
@@ -1739,7 +1680,7 @@ export default function App() {
               : extractCleanProductName(slot2Input)
             setSlot2PreviewName(pName)
 
-            const rawPrice = Number(data.price) || Number(data.currentPrice) || 289000
+            const rawPrice = Number(data.price) || Number(data.currentPrice) || 0
             setSlot2BasePrice(rawPrice)
             setSlot2PreviewPrice(formatVND(rawPrice))
 
@@ -1769,9 +1710,9 @@ export default function App() {
           if (isSubscribed) {
             const fallbackName = extractCleanProductName(slot2Input)
             setSlot2PreviewName(fallbackName)
-            setSlot2BasePrice(289000)
-            setSlot2PreviewPrice(formatVND(289000))
-            setSlot2TargetPrice(formatInputNumber(202000))
+            setSlot2BasePrice(0)
+            setSlot2PreviewPrice("")
+            setSlot2TargetPrice("")
           }
         })
         .finally(() => {
@@ -1834,45 +1775,17 @@ export default function App() {
     : `1 / ${Math.min(maxSlots, 2)} Món`
   const themeClass = isDark ? "dark-mode" : "light-mode"
 
-  const [slot1VariantOpts, setSlot1VariantOpts] = useState<[string, string][]>([
-    ["Tất cả phân loại (Mặc định)", "Tất cả phân loại"],
-    ["Size M / L", "Size M / L"],
-    ["Màu Đen / Trắng", "Màu Đen / Trắng"],
-  ])
+  const [slot1VariantOpts, setSlot1VariantOpts] = useState<[string, string][]>([])
 
-  const [slot2VariantOpts, setSlot2VariantOpts] = useState<[string, string][]>([
-    ["Tất cả phân loại (Mặc định)", "Tất cả phân loại"],
-    ["Size M / L", "Size M / L"],
-    ["Màu Đen / Trắng", "Màu Đen / Trắng"],
-  ])
+  const [slot2VariantOpts, setSlot2VariantOpts] = useState<[string, string][]>([])
 
-  // Tự động nhảy giá khi chọn Combo 2 món, Combo 3 món
+  // Variant selection — no price guessing, just set the variant
   const handleSlot1VariantSelect = (v: string) => {
     setSlot1Variant(v)
-    if (slot1BasePrice > 0) {
-      let multiplier = 1
-      if (/combo\s*2|2\s*món/i.test(v)) multiplier = 2
-      else if (/combo\s*3|3\s*món/i.test(v)) multiplier = 3
-
-      const newBase = slot1BasePrice * multiplier
-      setSlot1PreviewPrice(formatVND(newBase))
-      const newTarget = Math.round((newBase * 0.78) / 1000) * 1000
-      setSlot1TargetPrice(formatInputNumber(newTarget))
-    }
   }
 
   const handleSlot2VariantSelect = (v: string) => {
     setSlot2Variant(v)
-    if (slot2BasePrice > 0) {
-      let multiplier = 1
-      if (/combo\s*2|2\s*món/i.test(v)) multiplier = 2
-      else if (/combo\s*3|3\s*món/i.test(v)) multiplier = 3
-
-      const newBase = slot2BasePrice * multiplier
-      setSlot2PreviewPrice(formatVND(newBase))
-      const newTarget = Math.round((newBase * 0.70) / 1000) * 1000
-      setSlot2TargetPrice(formatInputNumber(newTarget))
-    }
   }
 
   return (
@@ -2740,8 +2653,8 @@ export default function App() {
                 const chosenInput = isS2 ? slot2Input : slot1Input
                 const isTikTok = chosenInput.toLowerCase().includes("tiktok")
                 const isLazada = chosenInput.toLowerCase().includes("lazada") || chosenInput.toLowerCase().includes("laz")
-                const baseP = (isS2 ? slot2BasePrice : slot1BasePrice) || (isS2 ? parseVND(slot2ProductPrice) : parseVND(slot1ProductPrice)) || 350000
-                const targetP = parseVND(isS2 ? slot2TargetPrice : slot1TargetPrice) || Math.round(baseP * 0.75)
+                const baseP = (isS2 ? slot2BasePrice : slot1BasePrice) || (isS2 ? parseVND(slot2ProductPrice) : parseVND(slot1ProductPrice)) || 0
+                const targetP = parseVND(isS2 ? slot2TargetPrice : slot1TargetPrice) || 0
                 const mockAlarm: PriceDropData = {
                   productName: (isS2 ? (slot2ProductName || slot2PreviewName) : (slot1ProductName || slot1PreviewName)) || "Sản phẩm đang săn",
                   oldPrice: baseP,
@@ -2751,7 +2664,7 @@ export default function App() {
                   affiliateUrl: isS2 ? (slot2AffiliateUrl || slot2Input) : (slot1AffiliateUrl || slot1Input),
                   slotNum: isS2 ? 2 : 1,
                   platformBadge: isTikTok ? "TIKTOK SHOP - FLASH SALE" : isLazada ? "LAZADA - DEAL SẬP SÀN" : "SHOPEE MALL - GIÁ ĐÁY LỊCH SỬ",
-                  discountCodes: ["GIAM50K", "FREESHIP_XTRA"],
+                  discountCodes: [],
                 }
                 setDetailModalSlot(null)
                 triggerPriceDropAlarm(mockAlarm)

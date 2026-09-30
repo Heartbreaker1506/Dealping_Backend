@@ -4,7 +4,6 @@ const {
   isShortLink,
   extractIdsFromLongUrl,
   extractProductNameFromUrl,
-  extractPriceFromUrl,
 } = require("../src/services/linkParser.service");
 
 test("isShortLink nhận diện đúng link rút gọn vn.shp.ee, tiktok và lazada", () => {
@@ -50,7 +49,3 @@ test("extractProductNameFromUrl bóc tách đúng tên sản phẩm từ URL Sho
   assert.strictEqual(extractProductNameFromUrl(tiktokUrl), "Sản phẩm TikTok Shop");
 });
 
-test("extractPriceFromUrl bóc tách đúng giá từ URL Lazada", () => {
-  const lazadaUrl = "https://www.lazada.vn/products/pdp-i123.html?displayPrice%3A14000&scm=1";
-  assert.strictEqual(extractPriceFromUrl(lazadaUrl), 14000);
-});

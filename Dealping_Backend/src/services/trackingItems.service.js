@@ -1,6 +1,6 @@
 const prisma = require("../config/prisma");
 const ApiError = require("../utils/ApiError");
-const { parseProductLink, extractProductNameFromUrl, extractPriceFromUrl } = require("./linkParser.service");
+const { parseProductLink, extractProductNameFromUrl } = require("./linkParser.service");
 const shopeePriceService = require("./shopeePriceService");
 const tiktokPriceService = require("./tiktokPriceService");
 const lazadaPriceService = require("./lazadaPriceService");
@@ -70,10 +70,11 @@ async function createTrackingItem({
   let affiliateUrl = resolvedUrl;
   
   if (resolvedUrl.includes("shopee.vn")) {
-    const sep = resolvedUrl.includes("?") ? "&" : "?";
-    affiliateUrl = `${resolvedUrl}${sep}mmp_pid=an_17349520236&utm_medium=affiliates&utm_source=an_17349520236&utm_content=dealping`;
-  } else if (resolvedUrl.includes("tiktok.com") || resolvedUrl.includes("lazada.vn")) {
-    affiliateUrl = `https://pub.accesstrade.vn/deep_link/7071757960571128506?url=${encodeURIComponent(resolvedUrl)}&utm_source=dealping`;
+    affiliateUrl = affiliateService.generateShopeeAffiliate(resolvedUrl);
+  } else if (resolvedUrl.includes("tiktok.com")) {
+    affiliateUrl = await affiliateService.generateTikTokAffiliate(resolvedUrl);
+  } else if (resolvedUrl.includes("lazada.vn")) {
+    affiliateUrl = await affiliateService.generateLazadaAffiliate(resolvedUrl);
   }
 
   let imageUrl = null;
@@ -85,39 +86,24 @@ async function createTrackingItem({
       if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
       if (!productName) productName = priceInfo.productName;
       imageUrl = priceInfo.imageUrl || null;
-      const rawPrice = Number(priceInfo.price);
-      let voucherDiscount = 0;
-      if (priceInfo.isXtra || Number(priceInfo.sellerComFinal) > 0) {
-        const est = Number(priceInfo.sellerComFinal) || Math.round(rawPrice * 0.085);
-        voucherDiscount = Math.floor(est / 10000) * 10000;
+      // Use actual voucher/commission data from API only — no guessing
+      if (priceInfo.isXtra && Number(priceInfo.sellerComFinal) > 0) {
+        const voucherDiscount = Math.floor(Number(priceInfo.sellerComFinal) / 10000) * 10000;
+        voucherPrice = voucherDiscount > 0 ? Number(priceInfo.price) - voucherDiscount : null;
       }
-      voucherPrice = voucherDiscount > 0 ? rawPrice - voucherDiscount : null;
     } else if (platform === "TIKTOK") {
       const priceInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
       if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
       if (!productName) productName = priceInfo.productName;
+      if (priceInfo.imageUrl) imageUrl = priceInfo.imageUrl;
     } else if (platform === "LAZADA") {
       const priceInfo = await lazadaPriceService.fetchCurrentPrice(resolvedUrl);
       if (!currentPrice && priceInfo.price > 0) currentPrice = priceInfo.price;
       if (!productName) productName = priceInfo.productName;
-      if (!productName || productName.toLowerCase() === "pdp") {
-        try {
-          const res = await axios.get(resolvedUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-          const match = res.data.match(/<title>([^<]*)<\/title>/i);
-          if (match && match[1]) {
-            productName = match[1].replace(/\s*\|\s*Lazada\.vn$/i, "").trim();
-          }
-        } catch (e) {
-          console.error("Lazada title fetch error", e.message);
-        }
-      }
+      if (priceInfo.imageUrl) imageUrl = priceInfo.imageUrl;
     }
   } catch (err) {
     console.error("Error fetching price in create:", err.message);
-  }
-
-  if (!currentPrice) {
-    currentPrice = extractPriceFromUrl(resolvedUrl);
   }
 
   if (!productName || productName === "Không thể lấy tên sản phẩm") {
@@ -202,10 +188,11 @@ async function previewTrackingItem(urlParams) {
   let affiliateUrl = resolvedUrl;
 
   if (resolvedUrl.includes("shopee.vn")) {
-    const sep = resolvedUrl.includes("?") ? "&" : "?";
-    affiliateUrl = `${resolvedUrl}${sep}mmp_pid=an_17349520236&utm_medium=affiliates&utm_source=an_17349520236&utm_content=dealping`;
-  } else if (resolvedUrl.includes("tiktok.com") || resolvedUrl.includes("lazada.vn")) {
-    affiliateUrl = `https://pub.accesstrade.vn/deep_link/7071757960571128506?url=${encodeURIComponent(resolvedUrl)}&utm_source=dealping`;
+    affiliateUrl = affiliateService.generateShopeeAffiliate(resolvedUrl);
+  } else if (resolvedUrl.includes("tiktok.com")) {
+    affiliateUrl = await affiliateService.generateTikTokAffiliate(resolvedUrl);
+  } else if (resolvedUrl.includes("lazada.vn")) {
+    affiliateUrl = await affiliateService.generateLazadaAffiliate(resolvedUrl);
   }
 
   try {
@@ -214,39 +201,24 @@ async function previewTrackingItem(urlParams) {
       currentPrice = priceInfo.price;
       productName = priceInfo.productName;
       imageUrl = priceInfo.imageUrl || null;
-      const rawPrice = Number(priceInfo.price);
-      let voucherDiscount = 0;
-      if (priceInfo.isXtra || Number(priceInfo.sellerComFinal) > 0) {
-        const est = Number(priceInfo.sellerComFinal) || Math.round(rawPrice * 0.085);
-        voucherDiscount = Math.floor(est / 10000) * 10000;
+      // Use actual voucher/commission data from API only — no guessing
+      if (priceInfo.isXtra && Number(priceInfo.sellerComFinal) > 0) {
+        const voucherDiscount = Math.floor(Number(priceInfo.sellerComFinal) / 10000) * 10000;
+        voucherPrice = voucherDiscount > 0 ? Number(priceInfo.price) - voucherDiscount : null;
       }
-      voucherPrice = voucherDiscount > 0 ? rawPrice - voucherDiscount : null;
     } else if (platform === "TIKTOK") {
       const priceInfo = await tiktokPriceService.fetchCurrentPrice(resolvedUrl);
       currentPrice = priceInfo.price;
       productName = priceInfo.productName;
+      if (priceInfo.imageUrl) imageUrl = priceInfo.imageUrl;
     } else if (platform === "LAZADA") {
       const priceInfo = await lazadaPriceService.fetchCurrentPrice(resolvedUrl);
       currentPrice = priceInfo.price;
       productName = priceInfo.productName;
-      if (!productName || productName.toLowerCase() === "pdp") {
-        try {
-          const res = await axios.get(resolvedUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-          const match = res.data.match(/<title>([^<]*)<\/title>/i);
-          if (match && match[1]) {
-            productName = match[1].replace(/\s*\|\s*Lazada\.vn$/i, "").trim();
-          }
-        } catch (e) {
-          console.error("Lazada title fetch error", e.message);
-        }
-      }
+      if (priceInfo.imageUrl) imageUrl = priceInfo.imageUrl;
     }
   } catch (err) {
     console.error("Preview error:", err.message);
-  }
-
-  if (!currentPrice) {
-    currentPrice = extractPriceFromUrl(resolvedUrl);
   }
 
   if (!productName || productName === "Không thể lấy tên sản phẩm") {
@@ -259,13 +231,7 @@ async function previewTrackingItem(urlParams) {
     price: currentPrice,
     resolvedUrl,
     platform,
-    variants: [
-      "Mặc định (1 món)",
-      "Combo 2 món",
-      "Combo 3 món",
-      "Phân loại Màu Đen / Trắng",
-      "Phân loại Size M / L"
-    ],
+    variants: [],
     imageUrl,
     voucherPrice,
     affiliateUrl

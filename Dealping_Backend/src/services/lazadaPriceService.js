@@ -5,7 +5,11 @@ const axios = require("axios");
  * @param {string} url - URL sản phẩm Lazada
  */
 async function fetchCurrentPrice(url = "") {
-  const apiKey = process.env.ADDLIVETAG_API_KEY || "d6a8444ee2905b22025df808705841ce5a0e5f168dc3f83b";
+  const apiKey = process.env.ADDLIVETAG_API_KEY;
+  if (!apiKey) {
+    console.error("ADDLIVETAG_API_KEY is not set in environment variables");
+    return { price: 0, productName: null, imageUrl: null, variants: [], flashSalePrice: null, cashbackCommission: 0, discountCodes: [] };
+  }
   try {
     const { data } = await axios.get(`https://data.addlivetag.com/lazada/product.php?url=${encodeURIComponent(url)}&key=${apiKey}`, {
       timeout: 10000,
@@ -15,10 +19,11 @@ async function fetchCurrentPrice(url = "") {
       return {
         price: data.productInfo.price,
         productName: data.productInfo.productName,
-        variants: ["Mặc định (Tất cả phân loại)"],
-        flashSalePrice: null,
-        cashbackCommission: Math.round((data.productInfo.price || 0) * 0.05), // Hoa hồng chuẩn
-        discountCodes: [],
+        imageUrl: data.productInfo.imageUrl || data.productInfo.image || null,
+        variants: data.productInfo.variants || [],
+        flashSalePrice: data.productInfo.flashSalePrice || null,
+        cashbackCommission: data.productInfo.cashbackCommission || 0,
+        discountCodes: data.productInfo.discountCodes || [],
       };
     }
   } catch (err) {
@@ -27,7 +32,8 @@ async function fetchCurrentPrice(url = "") {
 
   return {
     price: 0,
-    productName: "Không thể lấy tên sản phẩm",
+    productName: null,
+    imageUrl: null,
     variants: [],
     flashSalePrice: null,
     cashbackCommission: 0,

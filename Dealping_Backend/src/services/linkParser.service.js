@@ -119,25 +119,6 @@ function extractProductNameFromUrl(url) {
   }
 }
 
-/**
- * Trích xuất giá từ tham số URL nếu có (ví dụ Lazada displayPrice)
- */
-function extractPriceFromUrl(url) {
-  if (!url || typeof url !== "string") return null;
-  try {
-    const match =
-      url.match(/displayPrice%3A(\d+)/i) ||
-      url.match(/displayPrice:(\d+)/i) ||
-      url.match(/[?&]price=(\d+)/i);
-    if (match) {
-      const price = parseInt(match[1], 10);
-      if (!isNaN(price) && price > 0) return price;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Tự động phát hiện platform dựa trên hostname
@@ -195,7 +176,6 @@ module.exports = {
   resolveShortLink,
   extractIdsFromLongUrl,
   extractProductNameFromUrl,
-  extractPriceFromUrl,
   parseProductLink,
   identifyPlatform,
 };
