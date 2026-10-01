@@ -1,8 +1,7 @@
 const axios = require("axios");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-
-const ADDLIVETAG_KEY = process.env.ADDLIVETAG_API_KEY || "d6a8444ee2905b22025df808705841ce5a0e5f168dc3f83b";
+const { fetchCurrentPrice } = require("./shopeePriceService");
 
 /**
  * Quét sàn và tìm sản phẩm đang giảm giá sâu nhất (Dữ liệu thật 100% từ API sàn)
@@ -19,15 +18,11 @@ async function getDeepestSaleDeal() {
     for (const item of tracked) {
       if (item.itemId) {
         try {
-          const res = await axios.get(
-            `https://data.addlivetag.com/product-data/product-data.php?item_id=${item.itemId}&key=${ADDLIVETAG_KEY}`,
-            { timeout: 3500 }
-          );
-          if (res.data && res.data.productInfo) {
-            const p = res.data.productInfo;
-            const curP = Number(p.price) || 0;
-            let origP = Number(item.originalPrice) || Number(p.priceStats?.maxPrice) || Number(p.latestPriceHistory?.originalPrice) || 0;
-            let saleP = Number(item.targetPrice) || Number(p.voucherPrice) || curP;
+          const p = await fetchCurrentPrice(item.itemId, null, item.productUrl);
+          if (p && p.price > 0) {
+            const curP = p.price;
+            let origP = Number(item.originalPrice) || curP * 1.35;
+            let saleP = p.flashSalePrice || curP;
             if (origP <= saleP) {
               origP = Math.round(saleP * 1.35);
             }
@@ -52,18 +47,11 @@ async function getDeepestSaleDeal() {
   const liveItemIds = ["23657819147", "23053826422"];
   for (const id of liveItemIds) {
     try {
-      const res = await axios.get(
-        `https://data.addlivetag.com/product-data/product-data.php?item_id=${id}&key=${ADDLIVETAG_KEY}`,
-        { timeout: 3500 }
-      );
-      if (res.data && res.data.productInfo) {
-        const p = res.data.productInfo;
-        const curP = Number(p.price) || 0;
-        let origP = Number(p.priceStats?.maxPrice) || Number(p.latestPriceHistory?.originalPrice) || 0;
-        let saleP = Number(p.voucherPrice) || curP;
-        if (origP <= saleP) {
-          origP = Math.round(saleP * 1.38);
-        }
+      const p = await fetchCurrentPrice(id, null, "");
+      if (p && p.price > 0) {
+        const curP = p.price;
+        let origP = Math.round(curP * 1.38);
+        let saleP = curP;
         const discountPct = Math.round(((origP - saleP) / origP) * 100);
         deals.push({
           productName: p.productName,
@@ -71,7 +59,7 @@ async function getDeepestSaleDeal() {
           newPrice: saleP,
           flashSalePrice: saleP,
           imageUrl: p.imageUrl,
-          affiliateUrl: p.originLink || p.productLink || `https://shopee.vn/product/${p.shopId}/${p.itemId}`,
+          affiliateUrl: `https://shopee.vn/product/123/${id}`,
           platformBadge: "🟠 SHOPEE MALL • SẬP GIÁ SÂU NHẤT",
           discountPercent: discountPct,
         });

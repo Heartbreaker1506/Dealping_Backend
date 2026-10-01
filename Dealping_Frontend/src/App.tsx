@@ -341,130 +341,6 @@ function extractCleanProductName(url: string): string {
   return "Sản phẩm săn deal 24/7"
 }
 
-async function fetchPreviewDirect(shopeeUrl: string) {
-  const ADDLIVETAG_KEY = import.meta.env.VITE_ADDLIVETAG_KEY || ""
-  if (!ADDLIVETAG_KEY) {
-    console.warn("VITE_ADDLIVETAG_KEY is not set")
-    return null
-  }
-  const urlLower = shopeeUrl.toLowerCase()
-
-  // 1. TikTok Shop Live Partner API
-  if (urlLower.includes("tiktok")) {
-    try {
-      const tiktokApiUrl = `https://data.addlivetag.com/tiktok/product.php?url=${encodeURIComponent(shopeeUrl)}&key=${ADDLIVETAG_KEY}`
-      const res = await fetch(tiktokApiUrl)
-      if (res.ok) {
-        const json = await res.json()
-        if (json && json.status === "success" && json.productInfo) {
-          const p = json.productInfo
-          const rawPrice = Number(p.price) || 0
-          const voucherPrice = Number(p.voucherPrice) || Number(p.discountPrice) || (p.priceAfterVoucher ? Number(p.priceAfterVoucher) : null)
-          return {
-            productName: p.productName || extractCleanProductName(shopeeUrl),
-            price: rawPrice,
-            currentPrice: rawPrice,
-            voucherPrice: voucherPrice,
-            imageUrl: p.imageUrl || null,
-            affiliateUrl: p.productLink || shopeeUrl,
-            variants: p.variants || [],
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Direct TikTok AddLiveTag fetch error:", e)
-    }
-  }
-
-  // 2. Lazada Live Partner API
-  if (urlLower.includes("lazada")) {
-    try {
-      const lazadaApiUrl = `https://data.addlivetag.com/lazada/product.php?url=${encodeURIComponent(shopeeUrl)}&key=${ADDLIVETAG_KEY}`
-      const res = await fetch(lazadaApiUrl)
-      if (res.ok) {
-        const json = await res.json()
-        if (json && json.status === "success" && json.productInfo) {
-          const p = json.productInfo
-          const rawPrice = Number(p.price) || 0
-          const voucherPrice = Number(p.voucherPrice) || null
-          return {
-            productName: p.productName || extractCleanProductName(shopeeUrl),
-            price: rawPrice,
-            currentPrice: rawPrice,
-            voucherPrice: voucherPrice,
-            imageUrl: p.imageUrl || null,
-            affiliateUrl: p.originLink || p.productLink || shopeeUrl,
-            variants: p.variants || [],
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Direct Lazada AddLiveTag fetch error:", e)
-    }
-    return {
-      productName: extractCleanProductName(shopeeUrl) || null,
-      price: 0,
-      currentPrice: 0,
-      voucherPrice: null,
-      imageUrl: null,
-      affiliateUrl: shopeeUrl,
-      variants: [],
-    }
-  }
-
-  // 3. Shopee Live Partner API
-  const itemId = extractShopeeItemIdClient(shopeeUrl)
-  if (itemId) {
-    try {
-      const liveUrl = `https://data.addlivetag.com/product-data/product-data.php?item_id=${itemId}&key=${ADDLIVETAG_KEY}`
-      const res = await fetch(liveUrl)
-      if (res.ok) {
-        const json = await res.json()
-        if (json && json.status === "success" && json.productInfo) {
-          const p = json.productInfo
-          const rawPrice = Number(p.price) || Number(p.priceStats?.currentPrice) || Number(p.latestPriceHistory?.price) || 0
-          let voucherPrice = Number(p.voucherPrice) || Number(p.priceAfterVoucher) || (p.latestPriceHistory?.flashSale ? Number(p.latestPriceHistory.price) : null)
-
-          if (!voucherPrice && p.latestPriceHistory?.discountPercent > 0 && rawPrice > 0) {
-            voucherPrice = Math.round(rawPrice * (1 - p.latestPriceHistory.discountPercent / 100))
-          }
-          if (voucherPrice && rawPrice > 0 && voucherPrice >= rawPrice) {
-            voucherPrice = null
-          }
-
-          if (rawPrice > 0) {
-            const effectivePrice = (voucherPrice && voucherPrice < rawPrice) ? voucherPrice : rawPrice
-            return {
-              productName: p.productName || extractCleanProductName(shopeeUrl),
-              price: effectivePrice,
-              currentPrice: effectivePrice,
-              voucherPrice: voucherPrice,
-              imageUrl: p.imageUrl || null,
-              affiliateUrl: p.originLink || p.productLink || shopeeUrl,
-              variants: p.variants || [],
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Direct Shopee AddLiveTag fetch error:", e)
-    }
-  }
-
-  // Fallback: chỉ bóc tên từ URL, không đoán giá
-  const fallbackName = extractCleanProductName(shopeeUrl)
-  return {
-    productName: fallbackName,
-    price: 0,
-    currentPrice: 0,
-    voucherPrice: null,
-    imageUrl: null,
-    affiliateUrl: shopeeUrl,
-    variants: [],
-  }
-}
-
-
 async function fetchPreview(shopeeUrl: string) {
   try {
     const cleanApiUrl = API_URL.replace(/\/$/, "")
@@ -485,7 +361,17 @@ async function fetchPreview(shopeeUrl: string) {
     console.warn("Backend preview endpoint unavailable, using direct client resolver:", e)
   }
 
-  return await fetchPreviewDirect(shopeeUrl)
+  // Fallback: chỉ bóc tên từ URL, không đoán giá
+  const fallbackName = extractCleanProductName(shopeeUrl)
+  return {
+    productName: fallbackName,
+    price: 0,
+    currentPrice: 0,
+    voucherPrice: null,
+    imageUrl: null,
+    affiliateUrl: shopeeUrl,
+    variants: [],
+  }
 }
 
 interface BubbleData {
