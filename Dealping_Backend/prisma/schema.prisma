@@ -103,3 +103,13 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notifications")
 }
+
+model ShopeeProductCache {
+  itemId      BigInt   @id
+  productName String
+  price       Decimal  @db.Decimal(12, 2)
+  imageUrl    String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("shopee_product_cache")
+}

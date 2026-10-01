@@ -29,8 +29,8 @@ async function generateTikTokAffiliate(originalUrl) {
   
   if (!pubId || !campaignId) return originalUrl;
 
-  const baseUrl = "https://go.isclix.com/deep_link/v2";
-  const deepLink = `${baseUrl}/${pubId}?url=${encodeURIComponent(originalUrl)}&campaign_id=${campaignId}`;
+  const baseUrl = "https://go.isclix.com/deep_link";
+  const deepLink = `${baseUrl}/${pubId}?url=${encodeURIComponent(originalUrl)}`;
   
   return deepLink;
 }

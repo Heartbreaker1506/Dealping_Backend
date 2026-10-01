@@ -921,19 +921,16 @@ function SlotCard({
     ? Math.max(0, Math.round((1 - parseVND(targetPrice || "") / basePrice) * 100))
     : (isSlot1 ? 22 : 30)
 
-  // MOCK DATA for Price History (90 days) if not provided
-  const history = priceHistory || {
-    labels: ["01/08", "15/08", "01/09", "15/09", "30/09"],
-    price: [350000, 320000, 300000, 340000, 250000]
-  }
-  const chartData = history.labels.map((lbl, i) => ({
+  const history = priceHistory
+
+  const chartData = history ? history.labels.map((lbl, i) => ({
     label: lbl,
     price: history.price[i]
-  }))
-  const minPrice = Math.min(...history.price)
-  const maxPrice = Math.max(...history.price)
+  })) : []
+  const minPrice = history ? Math.min(...history.price) : 0
+  const maxPrice = history ? Math.max(...history.price) : 0
   const currentPriceRaw = parseVND(productPrice) || basePrice || 0
-  const isAtBottom = currentPriceRaw > 0 && currentPriceRaw <= minPrice
+  const isAtBottom = history && currentPriceRaw > 0 && currentPriceRaw <= minPrice
 
   return (
     <div
@@ -1010,7 +1007,7 @@ function SlotCard({
                           </p>
                         ) : (
                           <p className="text-[10px] font-semibold text-pink-500 truncate">
-                            Giá hiện hành: {previewPrice}
+                            Giá chưa qua voucher: {previewPrice}
                           </p>
                         )}
                       </>
@@ -1156,6 +1153,7 @@ function SlotCard({
           </div>
           
           {/* Price Badges & Chart */}
+          {history && chartData.length > 0 && (
           <div className="w-full mt-3 pt-3 border-t border-white/10">
             <div className="flex flex-wrap gap-1.5 mb-2">
               <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] text-white/80 font-bold">
@@ -1186,7 +1184,7 @@ function SlotCard({
               </ResponsiveContainer>
             </div>
           </div>
-
+          )}
         </div>
       )}
     </div>
@@ -2902,29 +2900,63 @@ export default function App() {
                   className="w-full h-12 bg-white/10 border border-white/20 rounded-[20px] pl-4 pr-24 text-xs text-white placeholder-white/40 focus:outline-none focus:border-emerald-500/50 transition-colors"
                 />
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (!chartLinkInput) return;
                     setIsAnalyzingChart(true);
-                    setTimeout(() => {
+                    try {
+                      const cleanApiUrl = API_URL.replace(/\/$/, "");
+                      
+                      // 1. Phân tích link để lấy itemId
+                      const previewRes = await fetch(`${cleanApiUrl}/api/tracking-items/preview`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url: chartLinkInput })
+                      });
+                      
+                      const previewData = await previewRes.json();
+                      const itemId = previewData?.data?.itemId;
+                      const productName = previewData?.data?.productName || "Sản phẩm từ Link";
+                      
+                      if (!itemId) {
+                        showToast("Lỗi", "Không tìm thấy ID sản phẩm để xem biểu đồ", "❌");
+                        setIsAnalyzingChart(false);
+                        return;
+                      }
+
+                      // 2. Gọi API lịch sử giá
+                      const historyRes = await fetch(`${cleanApiUrl}/api/deals/history/${itemId}`);
+                      const historyJson = await historyRes.json();
+                      
+                      if (historyJson?.data?.labels?.length > 0) {
+                        const history = historyJson.data;
+                        const dataPoints = history.labels.map((lbl: string, i: number) => ({
+                          date: lbl,
+                          price: history.price[i]
+                        }));
+                        
+                        const minPrice = Math.min(...history.price);
+                        const currentPrice = history.price[history.price.length - 1];
+                        
+                        setAnalyzedCharts([
+                          {
+                            id: Date.now(),
+                            name: productName,
+                            url: chartLinkInput,
+                            isBottom: currentPrice <= minPrice,
+                            data: dataPoints
+                          },
+                          ...analyzedCharts
+                        ]);
+                        setChartLinkInput("");
+                      } else {
+                        showToast("Thông báo", "Chưa có dữ liệu lịch sử giá cho sản phẩm này", "ℹ️");
+                      }
+                    } catch (error) {
+                      console.error(error);
+                      showToast("Lỗi", "Không thể lấy biểu đồ", "❌");
+                    } finally {
                       setIsAnalyzingChart(false);
-                      setAnalyzedCharts([
-                        {
-                          id: Date.now(),
-                          name: "Sản phẩm Demo từ Link",
-                          url: chartLinkInput,
-                          isBottom: true,
-                          data: [
-                            { date: "01/08", price: 350000 },
-                            { date: "15/08", price: 320000 },
-                            { date: "01/09", price: 340000 },
-                            { date: "15/09", price: 300000 },
-                            { date: "30/09", price: 280000 }
-                          ]
-                        },
-                        ...analyzedCharts
-                      ]);
-                      setChartLinkInput("");
-                    }, 1500);
+                    }
                   }}
                   disabled={!chartLinkInput || isAnalyzingChart}
                   className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 disabled:text-white/50 text-white font-bold text-[10px] rounded-[16px] transition-colors flex items-center justify-center shadow-lg"

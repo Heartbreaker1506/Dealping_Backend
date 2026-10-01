@@ -234,7 +234,8 @@ async function previewTrackingItem(urlParams) {
     variants: [],
     imageUrl,
     voucherPrice,
-    affiliateUrl
+    affiliateUrl,
+    itemId: itemId ? itemId.toString() : null
   };
 }
 

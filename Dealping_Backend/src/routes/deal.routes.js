@@ -18,4 +18,24 @@ router.get("/deepest-sale", async (req, res, next) => {
   }
 });
 
+const { fetchPriceHistory } = require("../services/shopeePriceService");
+
+/**
+ * GET /api/deals/history/:itemId
+ * Lấy lịch sử giá để vẽ biểu đồ
+ */
+router.get("/history/:itemId", async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    const history = await fetchPriceHistory(itemId);
+    
+    return res.status(200).json({
+      status: "success",
+      data: history
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
