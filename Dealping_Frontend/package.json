@@ -11,8 +11,10 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "lucide-react": "^1.49.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

@@ -5,11 +5,26 @@ import {
   useCallback,
   useLayoutEffect,
 } from "react"
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { Tag, Zap, Flame, Shirt, Headphones, Sparkles, Gift, ShoppingBag, ShoppingCart, Watch, Smartphone, Monitor, Heart, TrendingUp, User, Radio } from "lucide-react"
 
-type View = "onboarding" | "welcome" | "main"
+type View = "onboarding" | "welcome" | "main" | "wishlist" | "price_chart" | "account"
 type SpotlightStep = "none" | "slot1" | "radar"
 
-const BUBBLE_ICONS = ["🫧", "🏷️", "⚡", "🔥", "👟", "🎧", "✨", "👗", "🎁"]
+const BUBBLE_ICONS = [
+  <Tag className="w-1/2 h-1/2 text-pink-400" />, 
+  <Zap className="w-1/2 h-1/2 text-amber-400" />, 
+  <Flame className="w-1/2 h-1/2 text-orange-500" />, 
+  <Shirt className="w-1/2 h-1/2 text-sky-400" />, 
+  <Headphones className="w-1/2 h-1/2 text-purple-400" />, 
+  <Sparkles className="w-1/2 h-1/2 text-yellow-300" />, 
+  <Gift className="w-1/2 h-1/2 text-rose-400" />, 
+  <ShoppingBag className="w-1/2 h-1/2 text-emerald-400" />, 
+  <ShoppingCart className="w-1/2 h-1/2 text-blue-400" />,
+  <Watch className="w-1/2 h-1/2 text-slate-300" />,
+  <Smartphone className="w-1/2 h-1/2 text-indigo-400" />,
+  <Monitor className="w-1/2 h-1/2 text-teal-400" />
+]
 const TARGET_BUBBLES = 10
 const TUTORIAL_KEY = "deal_tutorial_done"
 
@@ -862,6 +877,7 @@ function SlotCard({
   previewImage,
   productImage,
   affiliateUrl,
+  priceHistory,
 }: {
   slotNum: number
   label: string
@@ -894,6 +910,7 @@ function SlotCard({
   previewImage?: string | null
   productImage?: string | null
   affiliateUrl?: string | null
+  priceHistory?: { labels: string[], price: number[] }
 }) {
   const isSlot1 = slotNum === 1
   const borderClass = isSlot1
@@ -903,6 +920,20 @@ function SlotCard({
   const discountPct = basePrice && basePrice > 0
     ? Math.max(0, Math.round((1 - parseVND(targetPrice || "") / basePrice) * 100))
     : (isSlot1 ? 22 : 30)
+
+  // MOCK DATA for Price History (90 days) if not provided
+  const history = priceHistory || {
+    labels: ["01/08", "15/08", "01/09", "15/09", "30/09"],
+    price: [350000, 320000, 300000, 340000, 250000]
+  }
+  const chartData = history.labels.map((lbl, i) => ({
+    label: lbl,
+    price: history.price[i]
+  }))
+  const minPrice = Math.min(...history.price)
+  const maxPrice = Math.max(...history.price)
+  const currentPriceRaw = parseVND(productPrice) || basePrice || 0
+  const isAtBottom = currentPriceRaw > 0 && currentPriceRaw <= minPrice
 
   return (
     <div
@@ -934,14 +965,14 @@ function SlotCard({
                   onInputChange(extractUrlFromText(pastedText))
                 }
               }}
-              placeholder={`Dán link Shopee/TikTok/Lazada vào đây (Món ${slotNum})`}
+              placeholder={`Dán link Shopee/TikTok/Lazada vào đây (Ô số ${slotNum})`}
               className="w-full apple-input placeholder-slate-400 font-medium text-xs rounded-[20px] px-3.5 py-3 pr-20 shadow-inner focus:outline-none transition"
             />
             <button
               onClick={onPaste}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-xl apple-glow-btn text-white text-[9px] font-bold shadow-sm active:scale-95 cursor-pointer"
             >
-              📋 Dán {slotNum === 1 ? "link" : "món 2"}
+              📋 Dán link
             </button>
           </div>
 
@@ -1068,7 +1099,8 @@ function SlotCard({
           )}
         </>
       ) : (
-        <div className="apple-glass rounded-[18px] p-2.5 flex items-center justify-between space-x-2">
+        <div className="apple-glass rounded-[18px] p-2.5 flex flex-col">
+          <div className="flex items-center justify-between space-x-2 w-full">
           <div
             onClick={onViewDetails}
             className="flex items-center space-x-2.5 min-w-0 cursor-pointer flex-1 group"
@@ -1121,6 +1153,40 @@ function SlotCard({
               🗑️ Đổi
             </button>
           </div>
+          </div>
+          
+          {/* Price Badges & Chart */}
+          <div className="w-full mt-3 pt-3 border-t border-white/10">
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] text-white/80 font-bold">
+                📉 Đáy: {formatVND(minPrice)}
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] text-white/80 font-bold">
+                📈 Đỉnh: {formatVND(maxPrice)}
+              </span>
+              {isAtBottom && (
+                <span className="px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[9px] text-emerald-400 font-black animate-pulse">
+                  🔥 ĐANG Ở ĐÁY GIÁ 90 NGÀY
+                </span>
+              )}
+            </div>
+            
+            <div className="h-28 w-full mt-1 bg-black/20 rounded-xl p-2 border border-white/5">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <XAxis dataKey="label" fontSize={8} tick={{fill: '#888'}} axisLine={false} tickLine={false} />
+                  <YAxis domain={['auto', 'auto']} hide />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '8px', fontSize: '10px' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(val: number) => formatVND(val)}
+                  />
+                  <Line type="monotone" dataKey="price" stroke={isAtBottom ? "#34d399" : "#f472b6"} strokeWidth={2} dot={{r: 2, fill: isAtBottom ? "#34d399" : "#f472b6"}} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
@@ -1131,6 +1197,12 @@ export default function App() {
   const [mounted, setMounted] = useState(false)
   const [view, setView] = useState<View>("onboarding")
   const [isDark, setIsDark] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  // Price Chart View State
+  const [chartLinkInput, setChartLinkInput] = useState("")
+  const [isAnalyzingChart, setIsAnalyzingChart] = useState(false)
+  const [analyzedCharts, setAnalyzedCharts] = useState<any[]>([])
 
   // Refs for spotlight measurement
   const slot1InputRef = useRef<HTMLInputElement>(null)
@@ -1783,32 +1855,44 @@ export default function App() {
             </div>
           )}
 
-          {/* Status Bar */}
-          <div className="pt-8 px-6 pb-2 flex justify-between items-center text-[12px] font-bold z-30">
-            <span>11:32</span>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setIsDark(!isDark)}
-                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-black/10 border border-white/40 shadow-sm active:scale-95 transition-all cursor-pointer"
-              >
-                <span className="text-[11px]">{isDark ? "🌙" : "☀️"}</span>
-                <span className="text-[9px] font-bold">
-                  {isDark ? "Dark" : "Light"}
-                </span>
-                <div
-                  className={`w-6 h-3.5 ${isDark ? "bg-purple-600" : "bg-slate-300"
-                    } rounded-full relative p-0.5 transition-colors`}
-                >
-                  <div
-                    className={`w-2.5 h-2.5 bg-white rounded-full transition-transform ${isDark ? "translate-x-2.5" : "translate-x-0"
-                      } shadow-sm`}
-                  />
+          {/* Status Bar Spacing */}
+          <div className="pt-10 pb-2 z-30 w-full" />
+          
+          {/* Top Control Bar */}
+          <div className="absolute top-12 inset-x-4 flex items-center justify-between z-40 pointer-events-none">
+            {/* Left: Light / Dark */}
+            <button
+              onClick={() => setIsDark(!isDark)}
+              className="pointer-events-auto flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur border border-white/40 shadow-sm active:scale-95 transition-all cursor-pointer text-slate-800 dark:text-white"
+            >
+              <span className="text-[11px]">{isDark ? "🌙" : "☀️"}</span>
+              <span className="text-[9px] font-bold">
+                {isDark ? "Dark" : "Light"}
+              </span>
+            </button>
+
+            {/* Center & Right: Only in Main View */}
+            {view === "main" && (
+              <>
+                <div className="pointer-events-auto absolute left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-black text-purple-600 dark:text-purple-400 border border-white/40 flex items-center space-x-1 shadow-sm">
+                  <span>Giới hạn:</span>
+                  <span className="font-bold text-pink-600 dark:text-pink-400">
+                    {slot2BubbleUnlocked ? "2 / 2 Món" : "1 / 1 Món"}
+                  </span>
                 </div>
-              </button>
-              <div className="w-5 h-2.5 border border-current rounded-sm p-0.5 flex items-center">
-                <div className="w-full h-full bg-current rounded-xs" />
-              </div>
-            </div>
+
+                <button
+                  onClick={() => {
+                    setSpotlightStep("none")
+                    setView("welcome")
+                  }}
+                  className="pointer-events-auto px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-bold border border-white/40 cursor-pointer active:scale-95 transition text-slate-800 dark:text-white shadow-sm flex items-center space-x-1"
+                >
+                  <span>Hướng dẫn</span>
+                  <span>→</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* ===== ONBOARDING — Xin phép thông báo ===== */}
@@ -1910,12 +1994,11 @@ export default function App() {
 
           {/* ===== MAIN APP ===== */}
           {view === "main" && (
-            <div className="flex-1 flex flex-col relative overflow-hidden z-10">
+            <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden z-10">
               {/* RADAR HEADER */}
               <div
                 id="radar-header-area"
                 className="relative h-44 w-full flex items-center justify-center shrink-0"
-                style={{ overflow: "hidden" }}
               >
                 <div className="absolute w-36 h-36 rounded-full border-2 border-white/30 animate-ping opacity-20 pointer-events-none" />
                 <div className="absolute w-24 h-24 rounded-full border border-pink-400/40 animate-pulse opacity-30 pointer-events-none" />
@@ -1974,7 +2057,7 @@ export default function App() {
                 <button
                   onClick={handleTestAlarm}
                   disabled={alarmLoading}
-                  className="absolute bottom-2.5 right-4 z-30 w-8 h-8 rounded-full apple-glass border border-red-500/40 hover:border-red-500 shadow-md flex items-center justify-center text-xs cursor-pointer active:scale-90 transition-all hover:bg-red-500/20 group"
+                  className="absolute bottom-2.5 left-4 z-30 w-8 h-8 rounded-full apple-glass border border-red-500/40 hover:border-red-500 shadow-md flex items-center justify-center text-xs cursor-pointer active:scale-90 transition-all hover:bg-red-500/20 group"
                   title="Nhấn để test thông báo hú chuông sập giá"
                 >
                   <span className={alarmLoading ? "animate-spin text-[10px]" : "group-hover:scale-115 transition-transform"}>
@@ -1983,37 +2066,71 @@ export default function App() {
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-ping" />
                 </button>
 
-                <button
-                  onClick={() => {
-                    setSpotlightStep("none")
-                    setView("welcome")
-                  }}
-                  className="absolute top-2 left-4 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-bold border border-white/40 cursor-pointer active:scale-95 transition z-30"
-                >
-                  ← Hướng dẫn
-                </button>
-                <div className="absolute top-2 right-4 px-2.5 py-1 rounded-full bg-white/30 backdrop-blur text-[10px] font-black text-purple-400 border border-white/40 flex items-center space-x-1 z-30">
-                  <span>Giới hạn:</span>
-                  <span className="font-bold text-pink-400">
-                    {slot2BubbleUnlocked ? "2 / 2 Món" : "1 / 1 Món"}
-                  </span>
+                {/* Moved Hướng dẫn & Giới hạn to Top Control Bar */}
+
+                {/* Nút Menu Ngang Hàng Báo Động */}
+                <div className="absolute bottom-2.5 right-4 z-50">
+                  {/* Menu Popup */}
+                  {isMenuOpen && (
+                    <div className="absolute top-10 right-0 mt-2 bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-[24px] shadow-2xl p-2 w-48 flex flex-col space-y-1 animate-slide-down-notification">
+                      <button 
+                        onClick={() => { setView("wishlist"); setIsMenuOpen(false); }}
+                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "wishlist" ? "bg-white/15 text-purple-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+                      >
+                        <Heart className={`w-4 h-4 ${view === "wishlist" ? "text-purple-400" : "text-white/60"}`} />
+                        <span className="text-xs">Lịch sử theo dõi</span>
+                      </button>
+                      <button 
+                        onClick={() => { setView("price_chart"); setIsMenuOpen(false); }}
+                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "price_chart" ? "bg-white/15 text-emerald-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+                      >
+                        <TrendingUp className={`w-4 h-4 ${view === "price_chart" ? "text-emerald-400" : "text-white/60"}`} />
+                        <span className="text-xs">Biểu đồ giá</span>
+                      </button>
+                      <button 
+                        onClick={() => { setView("account"); setIsMenuOpen(false); }}
+                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "account" ? "bg-white/15 text-pink-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+                      >
+                        <User className={`w-4 h-4 ${view === "account" ? "text-pink-400" : "text-white/60"}`} />
+                        <span className="text-xs">Tài khoản</span>
+                      </button>
+                      <div className="h-px bg-white/10 my-1 mx-2" />
+                      <button 
+                        onClick={() => { setView("main"); setIsMenuOpen(false); }}
+                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "main" ? "bg-white/15 text-sky-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+                      >
+                        <Radio className={`w-4 h-4 ${view === "main" ? "text-sky-400" : "text-white/60"}`} />
+                        <span className="text-xs">Radar Săn Deal</span>
+                      </button>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all duration-300 border ${isMenuOpen ? "bg-white text-black border-transparent scale-90" : "apple-glass text-white border-white/40 hover:scale-105 active:scale-95"}`}
+                    title="Menu Chức Năng"
+                  >
+                    <div className={`transform transition-transform duration-300 text-xs ${isMenuOpen ? "rotate-90" : "rotate-0"}`}>
+                      {isMenuOpen ? "✕" : "☰"}
+                    </div>
+                  </button>
                 </div>
               </div>
 
               {/* BOTTOM SHEET */}
-              <div className="flex-1 apple-sheet rounded-t-[36px] shadow-[0_-10px_35px_rgba(0,0,0,0.12)] px-5 pt-3 pb-3 flex flex-col overflow-y-auto z-10">
+              <div className="flex-1 min-h-0 apple-sheet rounded-t-[36px] shadow-[0_-10px_35px_rgba(0,0,0,0.12)] px-5 pt-3 pb-12 flex flex-col overflow-y-auto z-10">
                 <div className="w-10 h-1.5 bg-slate-400/40 rounded-full mx-auto mb-2" />
 
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <h3 className="text-sm font-black">Ô Săn Deal Của Bạn</h3>
+                    <h3 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-amber-300">Săn Deal Siêu Tốc</h3>
                     <p className="text-[9px] opacity-75 font-semibold text-pink-500">
                       Tối đa 2 ô {slot2BubbleUnlocked ? "(Đã mở khóa)" : "(Chạm 10 bóng để mở Ô #2)"}
                     </p>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[9px] font-bold">
                     {activeCount}/
-                    {Math.min(slot2BubbleUnlocked ? 2 : 1, maxSlots)} món
+                    {Math.min(slot2BubbleUnlocked ? 2 : 1, maxSlots)} ô
                   </span>
                 </div>
 
@@ -2052,7 +2169,7 @@ export default function App() {
                   {slot2BubbleUnlocked && (
                     <SlotCard
                       slotNum={2}
-                      label="✨ Ô TÌM THỨ 2 (MÓN 2/2)"
+                      label="✨ Ô TÌM SỐ 2"
                       labelClass="bg-gradient-to-r from-pink-500 to-purple-500 text-white"
                       active={slot2Active}
                       input={slot2Input}
@@ -2185,7 +2302,7 @@ export default function App() {
                   <div>
                     <SlotCard
                       slotNum={1}
-                      label="📍 Ô DÁN LINK #1 (MÓN 1/2)"
+                      label="📍 Ô TÌM SỐ 1"
                       labelClass="bg-purple-500/20 text-purple-400"
                       active={slot1Active}
                       input={slot1Input}
@@ -2725,6 +2842,178 @@ export default function App() {
             </div>
           )}
 
+          {/* WISHLIST VIEW */}
+          {view === "wishlist" && (
+            <div className="flex-1 flex flex-col relative overflow-hidden z-10 pt-4 px-5">
+              <div className="flex items-start justify-between mb-1">
+                <h2 className="text-lg font-black">❤️ Wishlist Của Bạn</h2>
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all duration-300 border z-50 ${isMenuOpen ? "bg-white text-black border-transparent scale-90" : "apple-glass text-white border-white/40 hover:scale-105 active:scale-95"}`}
+                >
+                  <div className={`transform transition-transform duration-300 text-xs ${isMenuOpen ? "rotate-90" : "rotate-0"}`}>
+                    {isMenuOpen ? "✕" : "☰"}
+                  </div>
+                </button>
+              </div>
+              <p className="text-[10px] text-white/60 mb-4">Danh sách sản phẩm đang theo dõi (chuẩn bị dữ liệu Batch từ Quân)</p>
+              
+              <div className="flex-1 overflow-y-auto space-y-3 pb-24 relative">
+                {/* Prepare UI for batch data */}
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="p-3 bg-white/5 border border-white/10 rounded-2xl flex items-center space-x-3 animate-pulse">
+                    <div className="w-12 h-12 bg-white/10 rounded-xl"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-white/10 rounded w-3/4"></div>
+                      <div className="h-2 bg-white/10 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-center text-[10px] text-white/40 mt-4">
+                  ⏳ Đang chờ Batch Data từ server...
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PRICE CHART VIEW (Global) */}
+          {view === "price_chart" && (
+            <div className="flex-1 flex flex-col relative overflow-hidden z-10 pt-4 px-5">
+              <div className="flex items-start justify-between mb-1">
+                <h2 className="text-lg font-black">📈 Theo Dõi Biểu Đồ Giá</h2>
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all duration-300 border z-50 ${isMenuOpen ? "bg-white text-black border-transparent scale-90" : "apple-glass text-white border-white/40 hover:scale-105 active:scale-95"}`}
+                >
+                  <div className={`transform transition-transform duration-300 text-xs ${isMenuOpen ? "rotate-90" : "rotate-0"}`}>
+                    {isMenuOpen ? "✕" : "☰"}
+                  </div>
+                </button>
+              </div>
+              <p className="text-[10px] text-white/60 mb-4">Dán link sản phẩm (Shopee/TikTok/Lazada) để phân tích lịch sử giá 90 ngày</p>
+              
+              {/* Add Link Input */}
+              <div className="relative mb-5 shrink-0">
+                <input
+                  type="text"
+                  placeholder="Dán link sản phẩm vào đây..."
+                  value={chartLinkInput}
+                  onChange={(e) => setChartLinkInput(e.target.value)}
+                  className="w-full h-12 bg-white/10 border border-white/20 rounded-[20px] pl-4 pr-24 text-xs text-white placeholder-white/40 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                />
+                <button 
+                  onClick={() => {
+                    if (!chartLinkInput) return;
+                    setIsAnalyzingChart(true);
+                    setTimeout(() => {
+                      setIsAnalyzingChart(false);
+                      setAnalyzedCharts([
+                        {
+                          id: Date.now(),
+                          name: "Sản phẩm Demo từ Link",
+                          url: chartLinkInput,
+                          isBottom: true,
+                          data: [
+                            { date: "01/08", price: 350000 },
+                            { date: "15/08", price: 320000 },
+                            { date: "01/09", price: 340000 },
+                            { date: "15/09", price: 300000 },
+                            { date: "30/09", price: 280000 }
+                          ]
+                        },
+                        ...analyzedCharts
+                      ]);
+                      setChartLinkInput("");
+                    }, 1500);
+                  }}
+                  disabled={!chartLinkInput || isAnalyzingChart}
+                  className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 disabled:text-white/50 text-white font-bold text-[10px] rounded-[16px] transition-colors flex items-center justify-center shadow-lg"
+                >
+                  {isAnalyzingChart ? "Đang quét..." : "Phân tích"}
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-4 pb-20">
+                {analyzedCharts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <p className="text-xs">Chưa có biểu đồ nào.</p>
+                    <p className="text-[10px]">Hãy dán link sản phẩm để xem lịch sử giá!</p>
+                  </div>
+                ) : (
+                  analyzedCharts.map((chart) => (
+                    <div key={chart.id} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 animate-slide-up-notification">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="min-w-0 pr-2">
+                          <h3 className="text-sm font-bold truncate">{chart.name}</h3>
+                          <p className="text-[8px] text-emerald-400 truncate mt-0.5">{chart.url}</p>
+                        </div>
+                        {chart.isBottom && (
+                          <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] rounded-lg font-black shrink-0 animate-pulse">🔥 Đáy 90 ngày</span>
+                        )}
+                      </div>
+                      <div className="h-48 w-full mt-3 bg-black/20 rounded-xl p-2 border border-white/5">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chart.data}>
+                            <XAxis dataKey="date" fontSize={10} tick={{fill: '#888'}} axisLine={false} tickLine={false} />
+                            <YAxis domain={['auto', 'auto']} hide />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '8px', fontSize: '10px' }}
+                              itemStyle={{ color: '#fff' }}
+                              formatter={(value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)}
+                            />
+                            <Line type="monotone" dataKey="price" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ACCOUNT VIEW */}
+          {view === "account" && (
+            <div className="flex-1 flex flex-col relative overflow-hidden z-10 pt-4 px-5">
+              <div className="flex items-start justify-between mb-1">
+                <h2 className="text-lg font-black">👤 Tài Khoản</h2>
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all duration-300 border z-50 ${isMenuOpen ? "bg-white text-black border-transparent scale-90" : "apple-glass text-white border-white/40 hover:scale-105 active:scale-95"}`}
+                >
+                  <div className={`transform transition-transform duration-300 text-xs ${isMenuOpen ? "rotate-45" : "rotate-0"}`}>
+                    {isMenuOpen ? "✕" : "☰"}
+                  </div>
+                </button>
+              </div>
+              <p className="text-[10px] text-white/60 mb-4">Quản lý thông tin & hạng thành viên</p>
+              
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="w-20 h-20 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-full mb-4 flex items-center justify-center text-3xl shadow-lg border-2 border-white/20">
+                  😎
+                </div>
+                <h3 className="text-sm font-black">Người Dùng VIP</h3>
+                <p className="text-[10px] text-pink-400 font-bold mt-1 mb-6">Hạng: {currentRank.name}</p>
+                
+                <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="opacity-70">Số bạn đã mời</span>
+                    <span className="font-bold">{friendsInvited} người</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="opacity-70">Ô săn deal tối đa</span>
+                    <span className="font-bold">{maxSlots} món</span>
+                  </div>
+                </div>
+                
+                <button onClick={() => setView("main")} className="mt-6 px-4 py-2 bg-white/10 rounded-full text-xs font-bold active:scale-95">
+                  Quay về Radar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* SPOTLIGHT TUTORIAL */}
           <SpotlightOverlay
             step={spotlightStep}
@@ -2734,9 +3023,44 @@ export default function App() {
             onDone={finishTutorial}
           />
 
+          {/* Global Menu Popup (For views other than main) */}
+          {isMenuOpen && view !== "main" && (
+            <div className="absolute top-16 right-5 z-50 bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-[24px] shadow-2xl p-2 w-48 flex flex-col space-y-1 animate-slide-down-notification">
+              <button 
+                onClick={() => { setView("wishlist"); setIsMenuOpen(false); }}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "wishlist" ? "bg-white/15 text-purple-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+              >
+                <Heart className={`w-4 h-4 ${view === "wishlist" ? "text-purple-400" : "text-white/60"}`} />
+                <span className="text-xs">Lịch sử theo dõi</span>
+              </button>
+              <button 
+                onClick={() => { setView("price_chart"); setIsMenuOpen(false); }}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "price_chart" ? "bg-white/15 text-emerald-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+              >
+                <TrendingUp className={`w-4 h-4 ${view === "price_chart" ? "text-emerald-400" : "text-white/60"}`} />
+                <span className="text-xs">Biểu đồ giá</span>
+              </button>
+              <button 
+                onClick={() => { setView("account"); setIsMenuOpen(false); }}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "account" ? "bg-white/15 text-pink-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+              >
+                <User className={`w-4 h-4 ${view === "account" ? "text-pink-400" : "text-white/60"}`} />
+                <span className="text-xs">Tài khoản</span>
+              </button>
+              <div className="h-px bg-white/10 my-1 mx-2" />
+              <button 
+                onClick={() => { setView("main"); setIsMenuOpen(false); }}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-colors ${view === "main" ? "bg-white/15 text-sky-400 font-bold" : "hover:bg-white/10 text-white/80"}`}
+              >
+                <Radio className={`w-4 h-4 ${view === "main" ? "text-sky-400" : "text-white/60"}`} />
+                <span className="text-xs">Radar Săn Deal</span>
+              </button>
+            </div>
+          )}
+
           {/* Home Indicator */}
-          <div className="pb-2 pt-1 flex justify-center z-30 bg-transparent shrink-0">
-            <div className="w-32 h-1 bg-current opacity-40 rounded-full" />
+          <div className="pb-2 pt-1 flex justify-center z-50 bg-transparent shrink-0 absolute bottom-0 w-full pointer-events-none">
+            <div className="w-32 h-1 bg-white opacity-40 rounded-full" />
           </div>
         </div>
       </div>
