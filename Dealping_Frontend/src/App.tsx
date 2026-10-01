@@ -1359,7 +1359,7 @@ export default function App() {
 
     if (chosenInput) {
       try {
-        const liveInfo = await fetchPreviewDirect(chosenInput)
+        const liveInfo = await fetchPreview(chosenInput)
         if (liveInfo) {
           if (liveInfo.productName && !/could not get|không thể lấy|sản phẩm$/i.test(liveInfo.productName)) {
             activeProductName = liveInfo.productName
